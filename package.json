@@ -12,12 +12,54 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "MD Pandoc Word Preview",
+      "properties": {
+        "mdPandocWordPreview.pandocPath": {
+          "type": "string",
+          "default": "",
+          "description": "pandoc可执行文件路径，优先环境变量PATH，找不到在此手动填写"
+        },
+        "mdPandocWordPreview.sofficePath": {
+          "type": "string",
+          "default": "",
+          "description": "LibreOffice soffice.exe 路径，windows示例 C:\\Program Files\\LibreOffice\\program\\soffice.exe"
+        },
+        "mdPandocWordPreview.referenceDocPath": {
+          "type": "string",
+          "default": "",
+          "description": "pandoc reference-doc模板docx路径，用于固定Word样式（公文/论文模板）"
+        },
+        "mdPandocWordPreview.pandocExtraArgs": {
+          "type": "string",
+          "default": "",
+          "description": "pandoc额外参数，如 --csl xxx.csl 参考文献格式"
+        },
+        "mdPandocWordPreview.debounceMs": {
+          "type": "number",
+          "default": 800,
+          "description": "防抖延迟，输入后等待多少毫秒执行转换，防止频繁调用pandoc"
+        },
+        "mdPandocWordPreview.autoOverwrite": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否自动覆盖已存在的docx/pdf，关闭则弹窗询问"
+        }
+      }
+    },
     "commands": [
       {
-        "command": "markdown-office-preview.helloWorld",
-        "title": "Hello World"
+        "command": "md-pandoc-word-preview.openPreview",
+        "title": "Open Pandoc Word Preview(PDF)"
       }
-    ]
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "md-pandoc-word-preview.openPreview"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
@@ -34,15 +76,18 @@
     "test": "vscode-test"
   },
   "devDependencies": {
-    "@types/vscode": "^1.138.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
-    "typescript-eslint": "^8.56.1",
-    "eslint": "^9.39.3",
+    "@types/vscode": "^1.138.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.3",
+    "eslint": "^9.39.3",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2"
+    "typescript-eslint": "^8.56.1"
+  },
+  "dependencies": {
+    "execa": "^8.0.1"
   }
 }
