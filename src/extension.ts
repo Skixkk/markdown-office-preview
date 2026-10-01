@@ -11,6 +11,8 @@ let previewPanel: vscode.WebviewPanel | undefined;
 let debounceTimer: NodeJS.Timeout | null = null;
 // 输出通道对象，用于在vscode输出面板打印插件运行日志
 let outputChannel: vscode.OutputChannel;
+// 文件系统监视器，监听磁盘上markdown文件变更
+let mdFileWatcher: vscode.FileSystemWatcher | undefined;
 
 /**
  * 类型守卫：判断错误对象是否属于execa执行产生的运行时错误
@@ -20,6 +22,31 @@ let outputChannel: vscode.OutputChannel;
 function isExecaError(err: unknown): err is { stderr?: string; message: string; failed: boolean } {
     // 判断不为null、是对象，并且拥有failed属性（execa报错标志性字段）
     return typeof err === 'object' && err !== null && 'failed' in err;
+}
+
+/**
+ * 公共防抖封装：统一处理内存编辑变更 / 磁盘文件变更
+ * @param uri 待转换markdown文件uri
+ */
+function triggerDebounceBuild(uri: vscode.Uri): void {
+    if (!previewPanel) {
+        return;
+    }
+    // 只处理markdown类型文件
+    if (uri.fsPath.endsWith('.md') === false) {
+        return;
+    }
+    const config = vscode.workspace.getConfiguration('mdPandocWordPreview');
+    const debounceMs = config.get<number>('debounceMs', 800);
+
+    // 清除上一轮等待中的定时器
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+    }
+    outputChannel.appendLine(`[debounce] schedule rebuild after ${debounceMs}ms, file:${uri.fsPath}`);
+    debounceTimer = setTimeout(() => {
+        void buildPdfPreview(uri);
+    }, debounceMs);
 }
 
 /**
@@ -209,6 +236,14 @@ export function activate(context: vscode.ExtensionContext) {
     // 将输出通道注册到订阅列表，插件卸载时自动释放资源
     context.subscriptions.push(outputChannel);
 
+    // -------------------------- 文件监视器：监听磁盘md文件修改（外部编辑器修改也生效） --------------------------
+    mdFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.md');
+    // 文件磁盘发生变更触发防抖更新
+    mdFileWatcher.onDidChange((uri) => {
+        outputChannel.appendLine(`[watcher] disk file changed: ${uri.fsPath}`);
+        triggerDebounceBuild(uri);
+    }, undefined, context.subscriptions);
+
     // 注册命令：package.json中定义的command id
     const openPreviewCmd = vscode.commands.registerCommand(
         'md-pandoc-word-preview.openPreview',
@@ -259,30 +294,9 @@ export function activate(context: vscode.ExtensionContext) {
         }
     );
 
-    // 监听文档文本修改事件：markdown编辑后防抖自动重新转换预览
+    // 监听内存中文本编辑修改事件：vscode内部编辑markdown
     vscode.workspace.onDidChangeTextDocument((docEvent) => {
-        // 预览面板没打开，直接返回，不需要转换
-        if (!previewPanel) {
-            return;
-        }
-        const doc = docEvent.document;
-        // 修改的文档不是markdown，直接返回
-        if (doc.languageId !== 'markdown') {
-            return;
-        }
-        // 读取防抖延时配置
-        const config = vscode.workspace.getConfiguration('mdPandocWordPreview');
-        const debounceMs = config.get<number>('debounceMs', 800);
-
-        // 如果上一次定时器还没执行，清除旧定时器，重置计时
-        if (debounceTimer) {
-            clearTimeout(debounceTimer);
-        }
-        // 设置新定时器，等待debounceMs毫秒后执行转换；void忽略Promise返回值，不处理await
-        debounceTimer = setTimeout(() => {
-            void buildPdfPreview(doc.uri);
-        }, debounceMs);
-        // 不设置thisArg，事件对象加入订阅列表，插件销毁自动解绑
+        triggerDebounceBuild(docEvent.document.uri);
     }, undefined, context.subscriptions);
 
     // 将命令注册对象加入订阅列表，插件卸载自动注销命令
@@ -296,5 +310,8 @@ export function deactivate() {
     // 存在防抖定时器，清除定时器，避免后台继续执行
     if (debounceTimer) {
         clearTimeout(debounceTimer);
+    }
+    if (mdFileWatcher) {
+        mdFileWatcher.dispose();
     }
 }
