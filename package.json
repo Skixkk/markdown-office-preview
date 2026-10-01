@@ -13,7 +13,7 @@
   "main": "./dist/extension.js",
   "contributes": {
     "configuration": {
-      "title": "MD Pandoc Word Preview",
+      "title": "markdown-office-preview",
       "properties": {
         "mdPandocWordPreview.pandocPath": {
           "type": "string",
