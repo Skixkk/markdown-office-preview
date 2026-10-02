@@ -112,9 +112,11 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
     const docxPath = path.join(dir, `${baseName}.docx`);
     // 拼接输出pdf完整路径：同目录下同名pdf
     const pdfPath = path.join(dir, `${baseName}.pdf`);
-    // autoOverwrite关闭状态，弹出模态确认弹窗询问是否覆盖旧文件
-    if (!autoOverwrite) {
-        // 判断docx或者pdf任意一个已经存在
+    // ========== 修复：预览打开状态下，自动强制覆盖，不再弹窗阻断实时更新 ==========
+    // 判断当前预览面板存在，则代表实时预览模式，直接跳过覆盖确认弹窗，强制覆盖
+    const isLivePreviewMode = !!previewPanel;
+    if (!autoOverwrite && !isLivePreviewMode) {
+        // autoOverwrite关闭状态，并且非实时预览模式，弹出模态确认弹窗询问是否覆盖旧文件
         if (fs.existsSync(docxPath) || fs.existsSync(pdfPath)) {
             // 弹出模态警告弹窗，提供两个选项：覆盖 / 取消
             const select = await vscode.window.showWarningMessage(
@@ -148,8 +150,10 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
     try {
         // 调用pandoc子进程，md转docx
         await execa(pandocPath, pandocArgs);
-        // 弹出信息提示：docx生成成功
-        vscode.window.showInformationMessage(`Pandoc 已生成 ${baseName}.docx`);
+        // 弹窗提示：docx生成成功，仅在非实时预览模式展示，避免频繁弹窗
+        if (!isLivePreviewMode) {
+            vscode.window.showInformationMessage(`Pandoc 已生成 ${baseName}.docx`);
+        }
         outputChannel.appendLine(`[pandoc] success, output: ${docxPath}`);
     } catch (err) {
         // 捕获pandoc执行异常
@@ -181,8 +185,10 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
             dir,                // 和原md同目录输出pdf
             docxPath            // 待转换docx文件路径
         ]);
-        // 弹窗提示pdf生成完成，预览更新
-        vscode.window.showInformationMessage(`LibreOffice 已生成 ${baseName}.pdf，预览已更新`);
+        // 弹窗提示pdf生成完成，预览更新，仅在非实时预览模式展示
+        if (!isLivePreviewMode) {
+            vscode.window.showInformationMessage(`LibreOffice 已生成 ${baseName}.pdf，预览已更新`);
+        }
         outputChannel.appendLine(`[soffice] pdf generated: ${pdfPath}`);
     } catch (err) {
         // 捕获LibreOffice执行异常
