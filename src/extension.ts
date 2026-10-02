@@ -4,7 +4,6 @@ import * as vscode from 'vscode';
 import fs from 'fs';
 // Node.js路径处理模块，处理文件路径拼接、文件名提取
 import path from 'path';
-
 // 全局WebviewPanel实例：PDF预览侧边面板，单例，只创建一次
 let previewPanel: vscode.WebviewPanel | undefined;
 // 防抖定时器，编辑markdown时延迟执行转换，避免频繁调用pandoc
@@ -13,7 +12,6 @@ let debounceTimer: NodeJS.Timeout | null = null;
 let outputChannel: vscode.OutputChannel;
 // 文件系统监视器，监听磁盘上markdown文件变更
 let mdFileWatcher: vscode.FileSystemWatcher | undefined;
-
 /**
  * 类型守卫：判断错误对象是否属于execa执行产生的运行时错误
  * @param err 捕获到的未知类型错误
@@ -23,7 +21,6 @@ function isExecaError(err: unknown): err is { stderr?: string; message: string; 
     // 判断不为null、是对象，并且拥有failed属性（execa报错标志性字段）
     return typeof err === 'object' && err !== null && 'failed' in err;
 }
-
 /**
  * 公共防抖封装：统一处理内存编辑变更 / 磁盘文件变更
  * @param uri 待转换markdown文件uri
@@ -38,7 +35,6 @@ function triggerDebounceBuild(uri: vscode.Uri): void {
     }
     const config = vscode.workspace.getConfiguration('mdPandocWordPreview');
     const debounceMs = config.get<number>('debounceMs', 800);
-
     // 清除上一轮等待中的定时器
     if (debounceTimer) {
         clearTimeout(debounceTimer);
@@ -48,7 +44,6 @@ function triggerDebounceBuild(uri: vscode.Uri): void {
         void buildPdfPreview(uri);
     }, debounceMs);
 }
-
 /**
  * 解析可执行程序真实路径
  * 优先级：用户配置文件路径 > 系统PATH环境变量查找
@@ -76,7 +71,6 @@ async function resolveExecutable(configPath: string, binName: string): Promise<s
         return '';
     }
 }
-
 /**
  * 核心业务函数：执行完整转换链路 md -> docx -> pdf，并且通知webview刷新PDF预览
  * @param mdUri 当前markdown文档uri对象
@@ -94,12 +88,10 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
     const pandocExtraArgsRaw = config.get<string>('pandocExtraArgs', '');
     // 获取用户配置：是否自动覆盖已存在docx/pdf文件
     const autoOverwrite = config.get<boolean>('autoOverwrite', false);
-
     // 解析得到最终可调用的pandoc路径
     const pandocPath = await resolveExecutable(pandocConfigPath, 'pandoc');
     // 解析得到最终可调用的soffice路径
     const sofficePath = await resolveExecutable(sofficeConfigPath, 'soffice');
-
     // pandoc路径为空，提示报错，终止转换流程
     if (!pandocPath) {
         vscode.window.showErrorMessage('pandoc 未找到，请检查 mdPandocWordPreview.pandocPath 配置或安装 pandoc');
@@ -110,7 +102,6 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
         vscode.window.showErrorMessage('LibreOffice soffice 未找到，请检查 mdPandocWordPreview.sofficePath 配置');
         return;
     }
-
     // 获取markdown本地磁盘完整路径
     const mdFilePath = mdUri.fsPath;
     // 获取不带后缀的文件名（去掉.md后缀）
@@ -121,10 +112,11 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
     const docxPath = path.join(dir, `${baseName}.docx`);
     // 拼接输出pdf完整路径：同目录下同名pdf
     const pdfPath = path.join(dir, `${baseName}.pdf`);
-
-    // autoOverwrite关闭状态，弹出模态确认弹窗询问是否覆盖旧文件
-    if (!autoOverwrite) {
-        // 判断docx或者pdf任意一个已经存在
+    // ========== 修复：预览打开状态下，自动强制覆盖，不再弹窗阻断实时更新 ==========
+    // 判断当前预览面板存在，则代表实时预览模式，直接跳过覆盖确认弹窗，强制覆盖
+    const isLivePreviewMode = !!previewPanel;
+    if (!autoOverwrite && !isLivePreviewMode) {
+        // autoOverwrite关闭状态，并且非实时预览模式，弹出模态确认弹窗询问是否覆盖旧文件
         if (fs.existsSync(docxPath) || fs.existsSync(pdfPath)) {
             // 弹出模态警告弹窗，提供两个选项：覆盖 / 取消
             const select = await vscode.window.showWarningMessage(
@@ -140,31 +132,28 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
             }
         }
     }
-
     // 初始化pandoc命令参数数组：输入md文件，输出docx
     const pandocArgs: string[] = [mdFilePath, '-o', docxPath];
-
     // 如果reference‑doc模板路径配置有效且文件存在，追加参考文档参数，固定word样式
     if (referenceDocPath && fs.existsSync(referenceDocPath)) {
         pandocArgs.push('--reference-doc', referenceDocPath);
     }
-
     // 用户填写了额外pandoc参数，按空白字符分割字符串，追加进参数列表
     if (pandocExtraArgsRaw.trim()) {
         const extraList = pandocExtraArgsRaw.trim().split(/\s+/);
         pandocArgs.push(...extraList);
     }
-
     // 动态导入execa执行子进程
     const { execa } = await import('execa');
     // 输出日志：打印完整pandoc执行命令
     outputChannel.appendLine(`\n[pandoc] run: ${pandocPath} ${pandocArgs.join(' ')}`);
-
     try {
         // 调用pandoc子进程，md转docx
         await execa(pandocPath, pandocArgs);
-        // 弹出信息提示：docx生成成功
-        vscode.window.showInformationMessage(`Pandoc 已生成 ${baseName}.docx`);
+        // 弹窗提示：docx生成成功，仅在非实时预览模式展示，避免频繁弹窗
+        if (!isLivePreviewMode) {
+            vscode.window.showInformationMessage(`Pandoc 已生成 ${baseName}.docx`);
+        }
         outputChannel.appendLine(`[pandoc] success, output: ${docxPath}`);
     } catch (err) {
         // 捕获pandoc执行异常
@@ -185,7 +174,6 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
         vscode.window.showErrorMessage(`Pandoc 转换失败：${msg}`);
         return;
     }
-
     outputChannel.appendLine(`[soffice] converting docx to pdf: ${sofficePath}`);
     try {
         // 调用LibreOffice headless无头模式，docx转pdf
@@ -197,8 +185,10 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
             dir,                // 和原md同目录输出pdf
             docxPath            // 待转换docx文件路径
         ]);
-        // 弹窗提示pdf生成完成，预览更新
-        vscode.window.showInformationMessage(`LibreOffice 已生成 ${baseName}.pdf，预览已更新`);
+        // 弹窗提示pdf生成完成，预览更新，仅在非实时预览模式展示
+        if (!isLivePreviewMode) {
+            vscode.window.showInformationMessage(`LibreOffice 已生成 ${baseName}.pdf，预览已更新`);
+        }
         outputChannel.appendLine(`[soffice] pdf generated: ${pdfPath}`);
     } catch (err) {
         // 捕获LibreOffice执行异常
@@ -214,18 +204,17 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
         vscode.window.showErrorMessage(`LibreOffice PDF导出失败：${msg}`);
         return;
     }
-
     // 如果预览面板实例存在，发送消息给webview前端，更新iframe的pdf地址
     if (previewPanel) {
         const pdfUri = vscode.Uri.file(pdfPath);
         // asWebviewUri：把本地磁盘文件路径转换为webview可访问的uri
+        // Add timestamp query to bypass iframe cache for updated pdf file
         previewPanel.webview.postMessage({
             type: 'updatePdf',
-            pdfUrl: previewPanel.webview.asWebviewUri(pdfUri).toString()
+            pdfUrl: `${previewPanel.webview.asWebviewUri(pdfUri).toString()}?t=${Date.now()}`
         });
     }
 }
-
 /**
  * 插件激活入口，vscode启动插件时执行
  * @param context 插件上下文对象，用于注册命令、注册事件、资源销毁
@@ -235,7 +224,6 @@ export function activate(context: vscode.ExtensionContext) {
     outputChannel = vscode.window.createOutputChannel('Markdown‑Office‑Preview');
     // 将输出通道注册到订阅列表，插件卸载时自动释放资源
     context.subscriptions.push(outputChannel);
-
     // -------------------------- 文件监视器：监听磁盘md文件修改（外部编辑器修改也生效） --------------------------
     mdFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.md');
     // 文件磁盘发生变更触发防抖更新
@@ -243,7 +231,6 @@ export function activate(context: vscode.ExtensionContext) {
         outputChannel.appendLine(`[watcher] disk file changed: ${uri.fsPath}`);
         triggerDebounceBuild(uri);
     }, undefined, context.subscriptions);
-
     // 注册命令：package.json中定义的command id
     const openPreviewCmd = vscode.commands.registerCommand(
         'md-pandoc-word-preview.openPreview',
@@ -262,7 +249,6 @@ export function activate(context: vscode.ExtensionContext) {
                     return;
                 }
                 const doc = editor.document;
-
                 // 如果预览面板已经存在，直接把面板显示到第二编辑器分组
                 if (previewPanel) {
                     previewPanel.reveal(vscode.ViewColumn.Two);
@@ -277,12 +263,48 @@ export function activate(context: vscode.ExtensionContext) {
                     // 监听webview销毁事件，置空全局变量，防止内存泄漏
                     previewPanel.onDidDispose(() => {
                         previewPanel = undefined;
+                        // Clear debounce timer when webview panel closed to avoid orphan background task
+                        if (debounceTimer) {
+                            clearTimeout(debounceTimer);
+                            debounceTimer = null;
+                        }
                     });
                 }
 
-                // 设置webview的HTML页面：iframe承载PDF，通过vscode消息机制更新src地址
-                previewPanel.webview.html = '<!DOCTYPE html><html style="margin:0;padding:0;height:100%;overflow:hidden;"><body style="margin:0;height:100%;"><iframe id="pdfFrame" style="width:100%;height:100%;border:none;"></iframe><script>const vscode = acquireVsCodeApi();window.addEventListener(\'message\',e=>{if(e.data.type === \'updatePdf\'){document.getElementById(\'pdfFrame\').src = e.data.pdfUrl;}});</script></body></html>';
+                // Wait webview DOMContentLoaded event before send postMessage, avoid message lost by race condition
+                const waitWebviewReady = new Promise<void>((resolve) => {
+                    if (!previewPanel) {
+                        resolve();
+                        return;
+                    }
+                    const disposable = previewPanel.webview.onDidReceiveMessage(msg => {
+                        if (msg.type === 'webviewReady') {
+                            disposable.dispose();
+                            resolve();
+                        }
+                    });
+                });
 
+                // 设置webview的HTML页面：iframe承载PDF，通过vscode消息机制更新src地址
+                // Add CSP header, send webviewReady signal after dom loaded
+                previewPanel.webview.html = `<!DOCTYPE html>
+<html style="margin:0;padding:0;height:100%;overflow:hidden;">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline';style-src 'unsafe-inline';frame-src vscode-webview:;">
+</head>
+<body style="margin:0;height:100%;">
+<iframe id="pdfFrame" style="width:100%;height:100%;border:none;"></iframe>
+<script>
+const vscode = acquireVsCodeApi();
+window.addEventListener('message',e=>{if(e.data.type === 'updatePdf'){document.getElementById('pdfFrame').src = e.data.pdfUrl;}});
+document.addEventListener('DOMContentLoaded',()=>{vscode.postMessage({type:'webviewReady'});});
+</script>
+</body>
+</html>`;
+
+                // Waiting webview script ready, then start pdf convert workflow
+                await waitWebviewReady;
                 // 调用转换函数，执行md->docx->pdf并且刷新预览
                 await buildPdfPreview(doc.uri);
             } catch (err) {
@@ -293,16 +315,13 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }
     );
-
     // 监听内存中文本编辑修改事件：vscode内部编辑markdown
     vscode.workspace.onDidChangeTextDocument((docEvent) => {
         triggerDebounceBuild(docEvent.document.uri);
     }, undefined, context.subscriptions);
-
     // 将命令注册对象加入订阅列表，插件卸载自动注销命令
     context.subscriptions.push(openPreviewCmd);
 }
-
 /**
  * 插件销毁回调，插件禁用/关闭窗口触发，清理定时器释放资源
  */
