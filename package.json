@@ -50,13 +50,24 @@
     "commands": [
       {
         "command": "md-pandoc-word-preview.openPreview",
-        "title": "Open Pandoc Word Preview(PDF)"
+        "title": "Open Pandoc Word Preview(PDF)",
+        "icon": {
+          "light": "./images/markpandocview.svg",
+          "dark": "./images/markpandocview.svg"
+        }
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "md-pandoc-word-preview.openPreview"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "md-pandoc-word-preview.openPreview",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
         }
       ]
     }
