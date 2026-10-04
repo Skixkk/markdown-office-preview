@@ -1,7 +1,6 @@
 # Markdown Office Preview
 
 > **A VS Code extension for professional Markdown office document preview**
-
 [中文文档](./README.zh.md)
 
 Convert Markdown files to standardized Word (.docx) and PDF documents in one click, powered by **Pandoc** and **LibreOffice**.
@@ -15,6 +14,7 @@ Provides real‑time debounced preview and official document style template supp
 - **Flexible Configuration**: Customize binary paths, Pandoc extra parameters, auto‑overwrite rules and debounce delay
 - **User‑friendly Prompt**: Complete error prompts and output log records for quick troubleshooting
 - **File Overwrite Confirmation**: Safe file coverage mechanism to prevent accidental file overwriting
+- **Editor Toolbar Button**: Add preview icon on markdown editor title bar for one‑click preview launch
 
 ## 📋 System Requirements
 
@@ -23,27 +23,28 @@ This extension relies on two third‑party tools, please install them first:
 1. **Pandoc**
     - [Download](https://pandoc.org/installing.html)
     - Used for converting Markdown to standard Word DOCX files
-
 2. **LibreOffice**
     - [Download](https://www.libreoffice.org/download/download/)
     - Used for converting DOCX files to standard PDF preview files
-
-You can either add the above tools to system `PATH` or manually configure their executable paths in VS Code settings.
+      You can either add the above tools to system `PATH` or manually configure their executable paths in VS Code
+      settings.
 
 ## 🚀 How to Use
 
 1. Open any `.md` file in VS Code
-2. Open command palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
-3. Search and run command: **Open Pandoc Word Preview(PDF)**
-4. A new webview panel will open on the right side, automatically generate and display PDF preview
-5. Edit your Markdown content, the preview will auto‑refresh after debounce delay
+2. Method 1: Click the preview icon on editor title bar to open PDF preview
+3. Method 2: Open command palette (`Ctrl+Shift+P` / `Cmd+Shift+P`)
+4. Search and run command: **Open Pandoc Word Preview(PDF)**
+5. A new webview panel will open on the right side, automatically generate and display PDF preview
+6. Edit your Markdown content, the preview will auto‑refresh after debounce delay
 
 ## ⚙️ Extension Settings
 
 This extension contributes the following settings under `markdown-office-preview`:
 
 - `mdPandocWordPreview.pandocPath`: Custom Pandoc executable file path. Auto uses system PATH if empty.
-- `mdPandocWordPreview.sofficePath`: Custom LibreOffice soffice.exe path. Windows example: `C:\\Program Files\\LibreOffice\\program\\soffice.exe`
+- `mdPandocWordPreview.sofficePath`: Custom LibreOffice soffice.exe path. Windows example:
+  `C:\\Program Files\\LibreOffice\\program\\soffice.exe`
 - `mdPandocWordPreview.referenceDocPath`: Custom Word template DOCX path, used for fixed official document styles.
 - `mdPandocWordPreview.pandocExtraArgs`: Extra Pandoc command parameters, e.g. reference format, layout rules.
 - `mdPandocWordPreview.debounceMs`: Edit debounce delay (default: 800ms), avoid frequent conversion.
@@ -51,7 +52,8 @@ This extension contributes the following settings under `markdown-office-preview
 
 ## 📝 Workflow Principle
 
-Markdown File → **Pandoc** (Render to styled DOCX) → **LibreOffice** (Export to PDF) → **VS Code Webview** (Real‑time Preview)
+Markdown File → **Pandoc** (Render to styled DOCX) → **LibreOffice** (Export to PDF) → **VS Code Webview** (Real‑time
+Preview)
 
 ## 🐛 Known Issues & Solutions
 
@@ -68,9 +70,9 @@ Markdown File → **Pandoc** (Render to styled DOCX) → **LibreOffice** (Export
 - Support custom template, extra command parameters and file overwrite confirmation
 - Add debounce auto‑refresh and dedicated output log panel
 - Complete configuration items for personalized customization
+- Add editor title toolbar icon, click icon to quickly open PDF preview panel
 
 ## 📄 License
 
 MIT License
-
 Enjoy writing with Markdown & Office standard preview!
