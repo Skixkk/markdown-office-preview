@@ -2,7 +2,7 @@
  * @Author: Skixkk <166358870+Skixkk@users.noreply.github.com>
  * @Date: 2026-10-04 23:28:29
  * @LastEditors: Skixkk <166358870+Skixkk@users.noreply.github.com>
- * @LastEditTime: 2026-10-04 23:28:38
+ * @LastEditTime: 2026-10-04 23:54:55
  * @FilePath: \markdown-office-preview\README.zh.md
  * @Description: Chinese README
 -->
@@ -21,6 +21,7 @@
 - **灵活参数配置**：自定义程序路径、Pandoc 扩展参数、文件覆写规则、防抖时间
 - **友好提示与日志**：完整错误提示，内置输出日志面板，方便排查转换异常
 - **安全覆写确认**：提供文件覆盖保护机制，防止误操作覆盖已有文档
+- **编辑器工具栏按钮**：Markdown 编辑器标题栏增加预览图标，点击快速唤起PDF预览面板
 
 ## 📋 系统依赖
 
@@ -32,16 +33,16 @@
 2. **LibreOffice**
     - [下载地址](https://www.libreoffice.org/download/download/)
     - 作用：把 DOCX 导出为标准 PDF 文件
-
-可以将程序加入系统环境变量 PATH，也可以直接在 VS Code 设置里手动指定可执行文件路径。
+      可以将程序加入系统环境变量 PATH，也可以直接在 VS Code 设置里手动指定可执行文件路径。
 
 ## 🚀 使用方法
 
 1. 在 VS Code 打开任意 `.md` 文件
-2. 调出命令面板 `Ctrl+Shift+P`（Mac：`Cmd+Shift+P`）
-3. 搜索并执行命令：**Open Pandoc Word Preview(PDF)**
-4. 右侧打开预览面板，自动生成并展示 PDF
-5. 修改 Markdown 内容，等待防抖延时后预览自动刷新
+2. 方式一：直接点击编辑器标题栏预览图标，打开PDF预览
+3. 方式二：调出命令面板 `Ctrl+Shift+P`（Mac：`Cmd+Shift+P`）
+4. 搜索并执行命令：**Open Pandoc Word Preview(PDF)**
+5. 右侧打开预览面板，自动生成并展示 PDF
+6. 修改 Markdown 内容，等待防抖延时后预览自动刷新
 
 ## ⚙️ 插件配置项
 
@@ -74,9 +75,9 @@ Markdown源文件 → **Pandoc**（生成带样式DOCX） → **LibreOffice**（
 - 支持自定义模板、扩展参数、文件覆写确认
 - 编辑防抖自动刷新，独立日志输出面板
 - 全部配置项支持个性化调整
+- 新增编辑器标题栏工具栏图标，点击快速打开PDF预览面板
 
 ## 📄 许可证
 
 MIT License
-
 > 使用 Markdown，轻松写出符合办公规范的文档 ✍️
