@@ -2,6 +2,8 @@
 
 > **A VS Code extension for professional Markdown office document preview**
 
+[中文文档](./README.zh.md)
+
 Convert Markdown files to standardized Word (.docx) and PDF documents in one click, powered by **Pandoc** and **LibreOffice**.
 Provides real‑time debounced preview and official document style template support, perfectly adapted for thesis, official documents and daily office writing.
 
