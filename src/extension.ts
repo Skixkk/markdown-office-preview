@@ -12,6 +12,53 @@ let debounceTimer: NodeJS.Timeout | null = null;
 let outputChannel: vscode.OutputChannel;
 // 文件系统监视器，监听磁盘上markdown文件变更
 let mdFileWatcher: vscode.FileSystemWatcher | undefined;
+
+/**
+ * Try invoke third‑party pdf viewer extension public command
+ * Priority: LaTeX‑Workshop(james‑yu.latex‑workshop) > tomoki1207.pdfviewer
+ * @param pdfUri target pdf file Uri
+ * @returns true if third‑party viewer activated, false fallback to self‑webview
+ */
+async function tryUseThirdPartyPdfViewer(pdfUri: vscode.Uri): Promise<boolean> {
+    const config = vscode.workspace.getConfiguration('mdPandocWordPreview');
+    const preferThirdParty = config.get<boolean>('preferThirdPartyViewer', true);
+    if (!preferThirdParty) {
+        return false;
+    }
+
+    // Try LaTeX‑Workshop
+    const latexWorkshopExt = vscode.extensions.getExtension('james-yu.latex-workshop');
+    if (latexWorkshopExt) {
+        if (!latexWorkshopExt.isActive) {
+            await latexWorkshopExt.activate();
+        }
+        try {
+            await vscode.commands.executeCommand('latex-workshop.viewer.viewPdf', { uri: pdfUri });
+            outputChannel.appendLine('[preview] Use third‑party viewer: LaTeX‑Workshop');
+            return true;
+        } catch (e) {
+            outputChannel.appendLine(`[preview] LaTeX‑Workshop invoke failed: ${String(e)}`);
+        }
+    }
+
+    // Try tomoki1207/pdfviewer
+    const pdfViewerExt = vscode.extensions.getExtension('tomoki1207.pdfviewer');
+    if (pdfViewerExt) {
+        if (!pdfViewerExt.isActive) {
+            await pdfViewerExt.activate();
+        }
+        try {
+            await vscode.commands.executeCommand('pdfviewer.openPdf', pdfUri);
+            outputChannel.appendLine('[preview] Use third‑party viewer: tomoki1207.pdfviewer');
+            return true;
+        } catch (e) {
+            outputChannel.appendLine(`[preview] tomoki1207.pdfviewer invoke failed: ${String(e)}`);
+        }
+    }
+
+    return false;
+}
+
 /**
  * 类型守卫：判断错误对象是否属于execa执行产生的运行时错误
  * @param err 捕获到的未知类型错误
@@ -249,18 +296,32 @@ export function activate(context: vscode.ExtensionContext) {
                     return;
                 }
                 const doc = editor.document;
-                // 如果预览面板已经存在，直接把面板显示到第二编辑器分组
+                const mdFilePath = doc.uri.fsPath;
+                const baseName = path.basename(mdFilePath, '.md');
+                const dir = path.dirname(mdFilePath);
+                const pdfPath = path.join(dir, `${baseName}.pdf`);
+                const pdfUri = vscode.Uri.file(pdfPath);
+
+                // Try reuse third‑party pdf viewer first
+                const usedThirdParty = await tryUseThirdPartyPdfViewer(pdfUri);
+                if (usedThirdParty) {
+                    // third‑party viewer take over rendering, conversion still keep running for file watcher live‑update
+                    await buildPdfPreview(doc.uri);
+                    return;
+                }
+
+                // If preview panel already exists, reveal panel to second editor group
                 if (previewPanel) {
                     previewPanel.reveal(vscode.ViewColumn.Two);
                 } else {
-                    // 不存在则新建webview面板，放置到右侧第二列，开启JS脚本支持
+                    // Not exists, create new webview panel on view‑column two, enable javascript
                     previewPanel = vscode.window.createWebviewPanel(
                         'pandocWordPdfPreview',
                         'Pandoc Word Preview(PDF)',
                         vscode.ViewColumn.Two,
                         { enableScripts: true }
                     );
-                    // 监听webview销毁事件，置空全局变量，防止内存泄漏
+                    // Listen webview dispose event, reset global variable to avoid memory leak
                     previewPanel.onDidDispose(() => {
                         previewPanel = undefined;
                         // Clear debounce timer when webview panel closed to avoid orphan background task
@@ -270,7 +331,6 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                     });
                 }
-
                 // Wait webview DOMContentLoaded event before send postMessage, avoid message lost by race condition
                 const waitWebviewReady = new Promise<void>((resolve) => {
                     if (!previewPanel) {
@@ -284,7 +344,6 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                     });
                 });
-
                 // 设置webview的HTML页面：iframe承载PDF，通过vscode消息机制更新src地址
                 // Add CSP header, send webviewReady signal after dom loaded
                 previewPanel.webview.html = `<!DOCTYPE html>
@@ -302,7 +361,6 @@ document.addEventListener('DOMContentLoaded',()=>{vscode.postMessage({type:'webv
 </script>
 </body>
 </html>`;
-
                 // Waiting webview script ready, then start pdf convert workflow
                 await waitWebviewReady;
                 // 调用转换函数，执行md->docx->pdf并且刷新预览
