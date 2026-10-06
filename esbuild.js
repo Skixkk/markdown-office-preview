@@ -15,7 +15,7 @@ const watch = process.argv.includes("--watch");
  * filter: skip *.d.ts / *.d.mts type‑declaration files
  */
 function skipTypeDeclarations(src) {
-    return !(src.endsWith('.d.ts') || src.endsWith('.d.mts'));
+  return !(src.endsWith(".d.ts") || src.endsWith(".d.mts"));
 }
 
 /**
@@ -31,7 +31,7 @@ async function copyPdfjsAssets() {
     );
     await fsExtra.copy("./node_modules/pdfjs-dist/web", "./dist/pdfjs/web", {
       overwrite: true,
-      filter: skipTypeDeclarations
+      filter: skipTypeDeclarations,
     });
     await fsExtra.copy(
       "./node_modules/pdfjs-dist/cmaps",

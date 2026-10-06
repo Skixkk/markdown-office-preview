@@ -15,6 +15,7 @@ export class MdOfficePreview extends Disposable {
         webview.options = {
             enableScripts: true,
             localResourceRoots: [
+                // fix: 指向构建输出的 dist/pdfjs 目录，匹配 esbuild 拷贝路径
                 vscode.Uri.joinPath(extensionRoot, 'dist/pdfjs'),
                 vscode.Uri.file(path.dirname(pdfUri.fsPath)),
             ],
@@ -81,6 +82,7 @@ export class MdOfficePreview extends Disposable {
     private getWebviewHtml(): string {
         const webview = this.webviewPanel.webview;
         const cspSource = webview.cspSource;
+        // fix: 指向构建输出的 dist/pdfjs，通过 asWebviewUri 转为 vscode-resource 协议
         const pdfJsRoot = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionRoot, 'dist/pdfjs'),
         );
