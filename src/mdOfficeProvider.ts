@@ -1,12 +1,10 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-
 export class MdOfficePreview {
     private readonly mdUri: vscode.Uri;
     private webviewPanel: vscode.WebviewPanel | undefined;
     private pdfUri: vscode.Uri;
     private readonly extensionRoot: vscode.Uri;
-
     constructor(mdUri: vscode.Uri, pdfUri: vscode.Uri, panel: vscode.WebviewPanel, extensionRoot: vscode.Uri) {
         this.mdUri = mdUri;
         this.pdfUri = pdfUri;
@@ -14,26 +12,21 @@ export class MdOfficePreview {
         this.extensionRoot = extensionRoot;
         this.renderPdfJsViewer();
     }
-
     public get mdUriValue(): vscode.Uri {
         return this.mdUri;
     }
-
     public revealPanel(): void {
         if (this.webviewPanel) {
             this.webviewPanel.reveal(vscode.ViewColumn.Two);
         }
     }
-
     public updatePdfUri(pdfUri: vscode.Uri): void {
         this.pdfUri = pdfUri;
         this.renderPdfJsViewer();
     }
-
     public dispose(): void {
         this.webviewPanel?.dispose();
     }
-
     private renderPdfJsViewer(): void {
         if (!this.webviewPanel) {return;}
         const panel = this.webviewPanel;
@@ -41,11 +34,9 @@ export class MdOfficePreview {
         const pdfJsRootUri = vscode.Uri.joinPath(this.extensionRoot, 'dist', 'pdfjs');
         const pdfJsBuildUri = vscode.Uri.joinPath(pdfJsRootUri, 'build');
         const pdfJsWebUri = vscode.Uri.joinPath(pdfJsRootUri, 'web');
-
         const pdfJsUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.js'));
         const pdfJsWorkerUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.worker.js'));
         const pdfFileWebUri = panel.webview.asWebviewUri(this.pdfUri);
-
         panel.webview.html = `
 <!DOCTYPE html>
 <html>
@@ -67,7 +58,11 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = '${pdfJsWorkerUri}';
 const pdfUrl = '${pdfFileWebUri}';
 (async function renderPdf() {
     try {
-        const pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+        // withCredentials:false bypass vscode‑resource virtual origin cross‑origin restriction
+        const pdfDoc = await pdfjsLib.getDocument({
+            url: pdfUrl,
+            withCredentials: false
+        }).promise;
         const pageCount = pdfDoc.numPages;
         const container = document.getElementById('container');
         for(let i=1;i<=pageCount;i++){
@@ -91,19 +86,15 @@ const pdfUrl = '${pdfFileWebUri}';
         `;
     }
 }
-
 export class MdOfficePreviewProvider {
     private readonly extensionRoot: vscode.Uri;
     private previews: MdOfficePreview[] = [];
-
     constructor(extensionRoot: vscode.Uri) {
         this.extensionRoot = extensionRoot;
     }
-
     public getPreviewByMdUri(mdUri: vscode.Uri): MdOfficePreview | undefined {
         return this.previews.find(p => p.mdUriValue.toString() === mdUri.toString());
     }
-
     public createPreview(mdUri: vscode.Uri, pdfUri: vscode.Uri, viewColumn: vscode.ViewColumn): MdOfficePreview {
         const panel = vscode.window.createWebviewPanel(
             'markdownOfficePreview',
@@ -120,7 +111,6 @@ export class MdOfficePreviewProvider {
         });
         return preview;
     }
-
     public disposeAll(): void {
         this.previews.forEach(p => p.dispose());
         this.previews = [];
