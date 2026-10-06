@@ -2,7 +2,7 @@
  * @Author: Skixkk <166358870+Skixkk@users.noreply.github.com>
  * @Date: 2026-09-27 01:19:45
  * @LastEditors: Skixkk <166358870+Skixkk@users.noreply.github.com>
- * @LastEditTime: 2026-10-05 01:04:19
+ * @LastEditTime: 2026-10-06 13:05:38
  * @FilePath: \markdown-office-preview\CHANGELOG.md
  * @Description: changed && TODO
 -->
@@ -38,3 +38,9 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 > Reserved for future planning items
 
 - Initial release backlog
+
+### 打包优化
+
+VS Code 扩展打包 `vsce package` 时，`node_modules` 体积很大，`pdfjs-dist` 会增大插件包。
+`tomoki1207/vscode-pdfviewer` 有另一种方案：**把 pdfjs 的静态 js 文件放到项目 `resources/pdfjs/`，不通过 pnpm 安装依赖**。
+如果你后续想切换这个无依赖方案，我可以给你对应的 webview html 代码。
