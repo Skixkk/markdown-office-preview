@@ -12,10 +12,9 @@ let debounceTimer: NodeJS.Timeout | null = null;
 let outputChannel: vscode.OutputChannel;
 // 文件系统监视器，监听磁盘上markdown文件变更
 let mdFileWatcher: vscode.FileSystemWatcher | undefined;
-
 /**
  * Try invoke third‑party pdf viewer extension public command
- * Priority: LaTeX‑Workshop(james‑yu.latex‑workshop) > tomoki1207.pdfviewer
+ * Priority: LaTeX‑Workshop(james‑yu.latex‑workshop) > tomoki1207.pdf
  * @param pdfUri target pdf file Uri
  * @returns true if third‑party viewer activated, false fallback to self‑webview
  */
@@ -26,12 +25,12 @@ async function tryUseThirdPartyPdfViewer(pdfUri: vscode.Uri): Promise<boolean> {
         return false;
     }
     const extLatexWorkshop = vscode.extensions.getExtension('james-yu.latex-workshop');
-    const extVscodePdf = vscode.extensions.getExtension('tomoki1207.pdfviewer');
+    const extVscodePdf = vscode.extensions.getExtension('tomoki1207.pdf');
     // 检测两个插件同时启用，原生存在PDF CustomEditor抢占冲突，不调用任意第三方查看器
     if(extLatexWorkshop?.isActive && extVscodePdf?.isActive){
-        outputChannel.appendLine('[preview] conflict detected: both LaTeX‑Workshop and tomoki1207.pdfviewer active, skip third‑party invoke');
+        outputChannel.appendLine('[preview] conflict detected: both LaTeX‑Workshop and tomoki1207.pdf active, skip third‑party invoke');
         const select = await vscode.window.showWarningMessage(
-            'vscode‑pdf 和 LaTeX‑Workshop 存在PDF编辑器冲突，请禁用其中一个，或使用插件内置预览',
+            'tomoki1207.pdf 和 LaTeX‑Workshop 存在PDF编辑器冲突，请禁用其中一个，或使用插件内置预览',
             '使用本插件内置预览'
         );
         if(select !== '使用本插件内置预览'){
@@ -45,29 +44,29 @@ async function tryUseThirdPartyPdfViewer(pdfUri: vscode.Uri): Promise<boolean> {
             await extLatexWorkshop.activate();
         }
         try {
-            await vscode.commands.executeCommand('latex-workshop.viewer.viewPdf', { uri: pdfUri });
+            // LaTeX-Workshop viewPdf 直接传入uri对象，不要包装{uri}
+            await vscode.commands.executeCommand('latex-workshop.viewer.viewPdf', pdfUri);
             outputChannel.appendLine('[preview] Use third‑party viewer: LaTeX‑Workshop');
             return true;
         } catch (e) {
             outputChannel.appendLine(`[preview] LaTeX‑Workshop invoke failed: ${String(e)}`);
         }
     }
-    // Try tomoki1207/pdfviewer
+    // Try tomoki1207.pdf (correct extension id, command: pdf.openPdf)
     if (extVscodePdf) {
         if (!extVscodePdf.isActive) {
             await extVscodePdf.activate();
         }
         try {
-            await vscode.commands.executeCommand('pdfviewer.openPdf', pdfUri);
-            outputChannel.appendLine('[preview] Use third‑party viewer: tomoki1207.pdfviewer');
+            await vscode.commands.executeCommand('pdf.openPdf', pdfUri);
+            outputChannel.appendLine('[preview] Use third‑party viewer: tomoki1207.pdf');
             return true;
         } catch (e) {
-            outputChannel.appendLine(`[preview] tomoki1207.pdfviewer invoke failed: ${String(e)}`);
+            outputChannel.appendLine(`[preview] tomoki1207.pdf invoke failed: ${String(e)}`);
         }
     }
     return false;
 }
-
 /**
  * 类型守卫：判断错误对象是否属于execa执行产生的运行时错误
  * @param err 捕获到的未知类型错误
@@ -77,7 +76,6 @@ function isExecaError(err: unknown): err is { stderr?: string; message: string; 
     // 判断不为null、是对象，并且拥有failed属性（execa报错标志性字段）
     return typeof err === 'object' && err !== null && 'failed' in err;
 }
-
 /**
  * 公共防抖封装：统一处理内存编辑变更 / 磁盘文件变更
  * @param uri 待转换markdown文件uri
@@ -101,7 +99,6 @@ function triggerDebounceBuild(uri: vscode.Uri): void {
         void buildPdfPreview(uri);
     }, debounceMs);
 }
-
 /**
  * 解析可执行程序真实路径
  * 优先级：用户配置文件路径 > 系统PATH环境变量查找
@@ -129,7 +126,6 @@ async function resolveExecutable(configPath: string, binName: string): Promise<s
         return '';
     }
 }
-
 /**
  * 核心业务函数：执行完整转换链路 md -> docx -> pdf，并且通知webview刷新PDF预览
  * @param mdUri 当前markdown文档uri对象
@@ -171,7 +167,6 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
     const docxPath = path.join(dir, `${baseName}.docx`);
     // 拼接输出pdf完整路径：同目录下同名pdf
     const pdfPath = path.join(dir, `${baseName}.pdf`);
-
     // ========== 修复：预览打开状态下，自动强制覆盖，不再弹窗阻断实时更新 ==========
     // 判断当前预览面板存在，则代表实时预览模式，直接跳过覆盖确认弹窗，强制覆盖
     const isLivePreviewMode = !!previewPanel;
@@ -192,7 +187,6 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
             }
         }
     }
-
     // 初始化pandoc命令参数数组：输入md文件，输出docx
     const pandocArgs: string[] = [mdFilePath, '-o', docxPath];
     // 如果reference‑doc模板路径配置有效且文件存在，追加参考文档参数，固定word样式
@@ -235,7 +229,6 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
         vscode.window.showErrorMessage(`Pandoc 转换失败：${msg}`);
         return;
     }
-
     outputChannel.appendLine(`[soffice] converting docx to pdf: ${sofficePath}`);
     try {
         // 调用LibreOffice headless无头模式，docx转pdf
@@ -266,7 +259,6 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
         vscode.window.showErrorMessage(`LibreOffice PDF导出失败：${msg}`);
         return;
     }
-
     // 如果预览面板实例存在，发送消息给webview前端，通知pdfjs重新加载pdf
     if (previewPanel) {
         const pdfUri = vscode.Uri.file(pdfPath);
@@ -275,8 +267,8 @@ async function buildPdfPreview(mdUri: vscode.Uri) {
             pdfUrl: `${previewPanel.webview.asWebviewUri(pdfUri).toString()}?t=${Date.now()}`
         });
     }
+    return pdfPath;
 }
-
 /**
  * 插件激活入口，vscode启动插件时执行
  * @param context 插件上下文对象，用于注册命令、注册事件、资源销毁
@@ -286,7 +278,6 @@ export function activate(context: vscode.ExtensionContext) {
     outputChannel = vscode.window.createOutputChannel('Markdown‑Office‑Preview');
     // 将输出通道注册到订阅列表，插件卸载时自动释放资源
     context.subscriptions.push(outputChannel);
-
     // -------------------------- 文件监视器：监听磁盘md文件修改（外部编辑器修改也生效） --------------------------
     mdFileWatcher = vscode.workspace.createFileSystemWatcher('**/*.md');
     // 文件磁盘发生变更触发防抖更新
@@ -294,7 +285,6 @@ export function activate(context: vscode.ExtensionContext) {
         outputChannel.appendLine(`[watcher] disk file changed: ${uri.fsPath}`);
         triggerDebounceBuild(uri);
     }, undefined, context.subscriptions);
-
     // 注册命令：package.json中定义的command id
     const openPreviewCmd = vscode.commands.registerCommand(
         'md-pandoc-word-preview.openPreview',
@@ -319,11 +309,10 @@ export function activate(context: vscode.ExtensionContext) {
                 const pdfPath = path.join(dir, `${baseName}.pdf`);
                 const pdfUri = vscode.Uri.file(pdfPath);
 
-                // Try reuse third‑party pdf viewer first
+                // ========= FIX 核心顺序修改：先生成PDF，再调用第三方预览 =========
+                await buildPdfPreview(doc.uri);
                 const usedThirdParty = await tryUseThirdPartyPdfViewer(pdfUri);
                 if (usedThirdParty) {
-                    // third‑party viewer take over rendering, conversion still keep running for file watcher live‑update
-                    await buildPdfPreview(doc.uri);
                     return;
                 }
 
@@ -354,7 +343,6 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                     });
                 }
-
                 // Wait webview DOMContentLoaded event before send postMessage, avoid message lost by race condition
                 const waitWebviewReady = new Promise<void>((resolve) => {
                     if (!previewPanel) {
@@ -372,7 +360,6 @@ export function activate(context: vscode.ExtensionContext) {
                 const pdfJsBuildUri = previewPanel.webview.asWebviewUri(
                     vscode.Uri.joinPath(context.extensionUri, 'resources/pdfjs')
                 );
-
                 // ========= Webview HTML：pdfjs‑dist 渲染PDF（参考tomoki1207/vscode‑pdfviewer实现思路） =========
                 previewPanel.webview.html = `<!DOCTYPE html>
 <html style="margin:0;padding:0;height:100%;overflow:hidden;">
@@ -393,10 +380,8 @@ body{height:100vh;background:#525659;overflow:auto;display:flex;flex-direction:c
 const vscode = acquireVsCodeApi();
 const pdfjsLib = window['pdfjs-dist/build/pdf'];
 pdfjsLib.GlobalWorkerOptions.workerSrc = '${pdfJsBuildUri}/pdf.worker.min.js';
-
 let pdfDoc = null;
 const container = document.getElementById('pdfContainer');
-
 async function renderPdf(pdfUrl){
     container.innerHTML = '<div style="color:white;">Rendering PDF...</div>';
     try{
@@ -420,20 +405,17 @@ async function renderPdf(pdfUrl){
         console.error(e);
     }
 }
-
 window.addEventListener('message',async e=>{
     if(e.data.type === 'reloadPdf'){
         await renderPdf(e.data.pdfUrl);
     }
 });
-
 document.addEventListener('DOMContentLoaded',()=>{
     vscode.postMessage({type:'webviewReady'});
 });
 </script>
 </body>
 </html>`;
-
                 // Waiting webview script ready, then start pdf convert workflow
                 await waitWebviewReady;
                 // 调用转换函数，执行md->docx->pdf并且刷新预览
@@ -446,16 +428,13 @@ document.addEventListener('DOMContentLoaded',()=>{
             }
         }
     );
-
     // 监听内存中文本编辑修改事件：vscode内部编辑markdown
     vscode.workspace.onDidChangeTextDocument((docEvent) => {
         triggerDebounceBuild(docEvent.document.uri);
     }, undefined, context.subscriptions);
-
     // 将命令注册对象加入订阅列表，插件卸载自动注销命令
     context.subscriptions.push(openPreviewCmd);
 }
-
 /**
  * 插件销毁回调，插件禁用/关闭窗口触发，清理定时器释放资源
  */
