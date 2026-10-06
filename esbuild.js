@@ -2,14 +2,43 @@
  * @Author: Skixkk <166358870+Skixkk@users.noreply.github.com>
  * @Date: 2026-09-27 01:19:45
  * @LastEditors: Skixkk <166358870+Skixkk@users.noreply.github.com>
- * @LastEditTime: 2026-09-29 21:08:21
+ * @LastEditTime: 2026-10-07 00:44:46
  * @FilePath: \markdown-office-preview\esbuild.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 const esbuild = require("esbuild");
+const fsExtra = require("fs-extra");
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
-
+/**
+ * filter: skip *.d.ts / *.d.mts type‑declaration files
+ */
+function skipTypeDeclarations(src) {
+  return !(src.endsWith(".d.ts") || src.endsWith(".d.mts"));
+}
+/**
+ * copy pdfjs‑dist static assets to dist/pdfjs
+ * Only copy required ESM artifacts: pdf.mjs, pdf.worker.mjs, skip unused web/cmaps directories
+ */
+async function copyPdfjsAssets() {
+  try {
+    await fsExtra.ensureDir("./dist/pdfjs/build");
+    // Only copy pdf.mjs & pdf.worker.mjs for pdfjs‑dist@6 ESM usage
+    await fsExtra.copy(
+      "./node_modules/pdfjs-dist/build/pdf.mjs",
+      "./dist/pdfjs/build/pdf.mjs",
+      { overwrite: true },
+    );
+    await fsExtra.copy(
+      "./node_modules/pdfjs-dist/build/pdf.worker.mjs",
+      "./dist/pdfjs/build/pdf.worker.mjs",
+      { overwrite: true },
+    );
+    // Remove unused web, cmaps copy, we do not require these assets for our minimal viewer
+  } catch (copyErr) {
+    console.warn("[warning] pdfjs assets copy skipped:", copyErr.message);
+  }
+}
 /**
  * @type {import('esbuild').Plugin}
  */
@@ -19,7 +48,8 @@ const esbuildProblemMatcherPlugin = {
     build.onStart(() => {
       console.log("[watch] build started");
     });
-    build.onEnd((result) => {
+    build.onEnd(async (result) => {
+      await copyPdfjsAssets();
       result.errors.forEach(({ text, location }) => {
         console.error(`✘ [ERROR] ${text}`);
         console.error(
@@ -30,8 +60,9 @@ const esbuildProblemMatcherPlugin = {
     });
   },
 };
-
 async function main() {
+  // 开发F5(watch)模式：执行初始化拷贝，保证首次启动dist/pdfjs存在
+  await copyPdfjsAssets();
   const ctx = await esbuild.context({
     entryPoints: ["src/extension.ts"],
     bundle: true,
@@ -53,7 +84,6 @@ async function main() {
     await ctx.dispose();
   }
 }
-
 main().catch((e) => {
   console.error(e);
   process.exit(1);

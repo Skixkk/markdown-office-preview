@@ -44,6 +44,11 @@
           "type": "boolean",
           "default": false,
           "description": "是否自动覆盖已存在的docx/pdf，关闭则弹窗询问"
+        },
+        "mdPandocWordPreview.preferThirdPartyViewer": {
+          "type": "boolean",
+          "default": true,
+          "description": "优先复用已安装第三方PDF预览插件(LaTeX-Workshop / pdfviewer); false强制使用内置预览面板"
         }
       }
     },
@@ -89,16 +94,19 @@
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/pdfjs-dist": "^2.10.378",
     "@types/vscode": "^1.138.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.3",
     "eslint": "^9.39.3",
+    "fs-extra": "^11.4.1",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1"
   },
   "dependencies": {
-    "execa": "^8.0.1"
+    "execa": "^8.0.1",
+    "pdfjs-dist": "^6.4.299"
   }
 }
