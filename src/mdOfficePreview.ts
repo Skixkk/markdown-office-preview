@@ -1,12 +1,9 @@
 import * as vscode from 'vscode';
 import path from 'path';
 import { Disposable } from './disposable';
-
 type PreviewState = 'Disposed' | 'Visible' | 'Active';
-
 export class MdOfficePreview extends Disposable {
     private _previewState: PreviewState = 'Visible';
-
     constructor(
         private readonly extensionRoot: vscode.Uri,
         public readonly mdUri: vscode.Uri,
@@ -18,11 +15,10 @@ export class MdOfficePreview extends Disposable {
         webview.options = {
             enableScripts: true,
             localResourceRoots: [
-                vscode.Uri.joinPath(extensionRoot, 'resources/pdfjs'),
+                vscode.Uri.joinPath(extensionRoot, 'dist/pdfjs'),
                 vscode.Uri.file(path.dirname(pdfUri.fsPath)),
             ],
         };
-
         // webview 消息
         this._register(
             webview.onDidReceiveMessage((msg) => {
@@ -33,7 +29,6 @@ export class MdOfficePreview extends Disposable {
                 }
             }),
         );
-
         // panel 状态
         this._register(
             webviewPanel.onDidChangeViewState(() => this.updateState()),
@@ -43,7 +38,6 @@ export class MdOfficePreview extends Disposable {
                 this._previewState = 'Disposed';
             }),
         );
-
         // 监听生成的pdf磁盘文件变化
         const watcher = this._register(
             vscode.workspace.createFileSystemWatcher(pdfUri.fsPath),
@@ -60,18 +54,15 @@ export class MdOfficePreview extends Disposable {
                 webviewPanel.dispose();
             }),
         );
-
         webviewPanel.webview.html = this.getWebviewHtml();
         this.updateState();
     }
-
     private updateState(): void {
         if (this._previewState === 'Disposed') {
             return;
         }
         this._previewState = this.webviewPanel.active ? 'Active' : 'Visible';
     }
-
     public reloadPdf(): void {
         if (this._previewState === 'Disposed') {
             return;
@@ -83,19 +74,16 @@ export class MdOfficePreview extends Disposable {
                 `?t=${Date.now()}`,
         });
     }
-
     public updatePdfUri(newPdfUri: vscode.Uri): void {
         this.pdfUri = newPdfUri;
         this.reloadPdf();
     }
-
     private getWebviewHtml(): string {
         const webview = this.webviewPanel.webview;
         const cspSource = webview.cspSource;
         const pdfJsRoot = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionRoot, 'resources/pdfjs'),
+            vscode.Uri.joinPath(this.extensionRoot, 'dist/pdfjs'),
         );
-
         return `<!DOCTYPE html>
 <html style="margin:0;padding:0;height:100%;overflow:hidden;">
 <head>
@@ -110,14 +98,13 @@ body{height:100vh;background:#525659;overflow:auto;display:flex;flex-direction:c
 </head>
 <body>
 <div id="pdfContainer"></div>
-<script src="${pdfJsRoot}/pdf.min.js"></script>
+<script src="${pdfJsRoot}/build/pdf.js"></script>
 <script>
 const vscode = acquireVsCodeApi();
 const pdfjsLib = window['pdfjs-dist/build/pdf'];
-pdfjsLib.GlobalWorkerOptions.workerSrc = '${pdfJsRoot}/pdf.worker.min.js';
+pdfjsLib.GlobalWorkerOptions.workerSrc = '${pdfJsRoot}/build/pdf.worker.js';
 let pdfDoc = null;
 const container = document.getElementById('pdfContainer');
-
 async function renderPdf(pdfUrl){
     container.innerHTML = '<div style="color:white;">Rendering PDF...</div>';
     try{
@@ -140,13 +127,11 @@ async function renderPdf(pdfUrl){
         container.innerHTML = '<div style="color:#ff7777;padding:20px;">PDF render error：'+e.message+'</div>';
     }
 }
-
 window.addEventListener('message',async e=>{
     if(e.data.type === 'reloadPdf'){
         await renderPdf(e.data.pdfUrl);
     }
 });
-
 document.addEventListener('DOMContentLoaded',()=>{
     vscode.postMessage({type:'webviewReady'});
 });

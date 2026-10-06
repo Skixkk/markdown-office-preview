@@ -2,7 +2,7 @@
  * @Author: Skixkk <166358870+Skixkk@users.noreply.github.com>
  * @Date: 2026-09-27 01:19:45
  * @LastEditors: Skixkk <166358870+Skixkk@users.noreply.github.com>
- * @LastEditTime: 2026-09-29 21:08:21
+ * @LastEditTime: 2026-10-06 23:59:35
  * @FilePath: \markdown-office-preview\esbuild.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -10,6 +10,13 @@ const esbuild = require("esbuild");
 const fsExtra = require("fs-extra");
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
+
+/**
+ * filter: skip *.d.ts / *.d.mts type‑declaration files
+ */
+function skipTypeDeclarations(src) {
+    return !(src.endsWith('.d.ts') || src.endsWith('.d.mts'));
+}
 
 /**
  * copy pdfjs‑dist static assets to dist/pdfjs
@@ -20,15 +27,16 @@ async function copyPdfjsAssets() {
     await fsExtra.copy(
       "./node_modules/pdfjs-dist/build",
       "./dist/pdfjs/build",
-      { overwrite: true },
+      { overwrite: true, filter: skipTypeDeclarations },
     );
     await fsExtra.copy("./node_modules/pdfjs-dist/web", "./dist/pdfjs/web", {
       overwrite: true,
+      filter: skipTypeDeclarations
     });
     await fsExtra.copy(
       "./node_modules/pdfjs-dist/cmaps",
       "./dist/pdfjs/cmaps",
-      { overwrite: true },
+      { overwrite: true, filter: skipTypeDeclarations },
     );
   } catch (copyErr) {
     console.warn("[warning] pdfjs assets copy skipped:", copyErr.message);
@@ -56,10 +64,10 @@ const esbuildProblemMatcherPlugin = {
     });
   },
 };
+
 async function main() {
   // 开发F5(watch)模式：执行初始化拷贝，保证首次启动dist/pdfjs存在
   await copyPdfjsAssets();
-
   const ctx = await esbuild.context({
     entryPoints: ["src/extension.ts"],
     bundle: true,
@@ -81,6 +89,7 @@ async function main() {
     await ctx.dispose();
   }
 }
+
 main().catch((e) => {
   console.error(e);
   process.exit(1);
