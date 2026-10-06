@@ -15,12 +15,10 @@ export class MdOfficePreview {
         this.renderPdfJsViewer();
     }
 
-    // getter 对外只读获取mdUri，不破坏private封装
     public get mdUriValue(): vscode.Uri {
         return this.mdUri;
     }
 
-    // 新增公开方法，供外部调用，封装私有webviewPanel.reveal
     public revealPanel(): void {
         if (this.webviewPanel) {
             this.webviewPanel.reveal(vscode.ViewColumn.Two);
@@ -36,24 +34,58 @@ export class MdOfficePreview {
         this.webviewPanel?.dispose();
     }
 
-    // 渲染pdf.js官方viewer，和vscode-pdfviewer逻辑一致
     private renderPdfJsViewer(): void {
         if (!this.webviewPanel) {return;}
         const panel = this.webviewPanel;
-        const pdfJsRootUri = vscode.Uri.joinPath(this.extensionRoot, 'node_modules', 'pdfjs-dist');
-        const viewerHtmlUri = vscode.Uri.joinPath(pdfJsRootUri, 'web', 'viewer.html');
-        const viewerHtmlWebUri = panel.webview.asWebviewUri(viewerHtmlUri);
+        // ✅ 从dist目录读取，不再读取node_modules
+        const pdfJsRootUri = vscode.Uri.joinPath(this.extensionRoot, 'dist', 'pdfjs');
+        const pdfJsBuildUri = vscode.Uri.joinPath(pdfJsRootUri, 'build');
+        const pdfJsWebUri = vscode.Uri.joinPath(pdfJsRootUri, 'web');
+
+        const pdfJsUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.js'));
+        const pdfJsWorkerUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.worker.js'));
         const pdfFileWebUri = panel.webview.asWebviewUri(this.pdfUri);
-        const fullViewerUrl = `${viewerHtmlWebUri.toString()}#file=${pdfFileWebUri.toString()}`;
 
         panel.webview.html = `
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
+<title>Markdown Office PDF Preview</title>
+<style>
+html,body{margin:0;padding:0;height:100vh;overflow:auto;background:#eeeeee;}
+#container{width:100%;padding:16px;box-sizing:border-box;}
+canvas{display:block;margin:12px auto;background:#fff;box-shadow:0 2px 8px #00000022;}
+</style>
 </head>
-<body style="margin:0;padding:0;height:100vh;overflow:hidden;">
-<iframe src="${fullViewerUrl}" style="width:100%;height:100vh;border:none;"></iframe>
+<body>
+<div id="container"></div>
+<script src="${pdfJsUri}"></script>
+<script>
+const pdfjsLib = window['pdfjs-dist/build/pdf'];
+pdfjsLib.GlobalWorkerOptions.workerSrc = '${pdfJsWorkerUri}';
+const pdfUrl = '${pdfFileWebUri}';
+(async function renderPdf() {
+    try {
+        const pdfDoc = await pdfjsLib.getDocument(pdfUrl).promise;
+        const pageCount = pdfDoc.numPages;
+        const container = document.getElementById('container');
+        for(let i=1;i<=pageCount;i++){
+            const page = await pdfDoc.getPage(i);
+            const viewport = page.getViewport({scale:1.5});
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            container.appendChild(canvas);
+            await page.render({canvasContext:ctx, viewport}).promise;
+        }
+    } catch(err) {
+        console.error('PDF render error', err);
+        document.body.innerText = 'PDF Render Error: ' + err.message;
+    }
+})();
+</script>
 </body>
 </html>
         `;
@@ -69,7 +101,6 @@ export class MdOfficePreviewProvider {
     }
 
     public getPreviewByMdUri(mdUri: vscode.Uri): MdOfficePreview | undefined {
-        // 通过getter访问，不再直接读取私有 p.mdUri
         return this.previews.find(p => p.mdUriValue.toString() === mdUri.toString());
     }
 
@@ -79,8 +110,7 @@ export class MdOfficePreviewProvider {
             'Markdown Office PDF Preview',
             viewColumn,
             {
-                enableScripts: true,
-                enableCommandUris: true
+                enableScripts: true
             }
         );
         const preview = new MdOfficePreview(mdUri, pdfUri, panel, this.extensionRoot);

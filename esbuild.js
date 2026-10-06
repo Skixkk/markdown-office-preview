@@ -7,8 +7,33 @@
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 const esbuild = require("esbuild");
+const fsExtra = require("fs-extra");
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
+
+/**
+ * copy pdfjs‑dist static assets to dist/pdfjs
+ */
+async function copyPdfjsAssets() {
+  try {
+    await fsExtra.ensureDir("./dist/pdfjs");
+    await fsExtra.copy(
+      "./node_modules/pdfjs-dist/build",
+      "./dist/pdfjs/build",
+      { overwrite: true },
+    );
+    await fsExtra.copy("./node_modules/pdfjs-dist/web", "./dist/pdfjs/web", {
+      overwrite: true,
+    });
+    await fsExtra.copy(
+      "./node_modules/pdfjs-dist/cmaps",
+      "./dist/pdfjs/cmaps",
+      { overwrite: true },
+    );
+  } catch (copyErr) {
+    console.warn("[warning] pdfjs assets copy skipped:", copyErr.message);
+  }
+}
 
 /**
  * @type {import('esbuild').Plugin}
@@ -19,7 +44,8 @@ const esbuildProblemMatcherPlugin = {
     build.onStart(() => {
       console.log("[watch] build started");
     });
-    build.onEnd((result) => {
+    build.onEnd(async (result) => {
+      await copyPdfjsAssets();
       result.errors.forEach(({ text, location }) => {
         console.error(`✘ [ERROR] ${text}`);
         console.error(
@@ -30,8 +56,10 @@ const esbuildProblemMatcherPlugin = {
     });
   },
 };
-
 async function main() {
+  // 开发F5(watch)模式：执行初始化拷贝，保证首次启动dist/pdfjs存在
+  await copyPdfjsAssets();
+
   const ctx = await esbuild.context({
     entryPoints: ["src/extension.ts"],
     bundle: true,
@@ -53,7 +81,6 @@ async function main() {
     await ctx.dispose();
   }
 }
-
 main().catch((e) => {
   console.error(e);
   process.exit(1);
