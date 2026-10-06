@@ -1,10 +1,10 @@
 <!--
- * @Author: Skixkk <166358870+Skixkk@users.noreply.github.com>
- * @Date: 2026-10-04 23:28:29
+ * @Author: Skixkk <166358870+Skixkk@users.noreply.github.com>
+ * @Date: 2026-10-04 23:28:29
  * @LastEditors: Skixkk <166358870+Skixkk@users.noreply.github.com>
- * @LastEditTime: 2026-10-04 23:54:55
- * @FilePath: \markdown-office-preview\README.zh.md
- * @Description: Chinese README
+ * @LastEditTime: 2026-10-07 01:10:51
+ * @FilePath: \markdown-office-preview\README.zh.md
+ * @Description: Chinese README
 -->
 
 # Markdown Office Preview
@@ -22,18 +22,20 @@
 - **友好提示与日志**：完整错误提示，内置输出日志面板，方便排查转换异常
 - **安全覆写确认**：提供文件覆盖保护机制，防止误操作覆盖已有文档
 - **编辑器工具栏按钮**：Markdown 编辑器标题栏增加预览图标，点击快速唤起PDF预览面板
+- **第三方PDF预览插件降级适配**：自动检测已安装的PDF预览插件，优先使用 LaTeX-Workshop 或 vscode-pdf；无插件时使用内置 pdf.js 预览
+- **鼠标滚轮缩放**：内置 pdf.js 预览支持鼠标滚轮缩放，缩放区间限制 0.3x ~ 3.0x
 
 ## 📋 系统依赖
 
 插件依赖两款第三方工具，请提前安装：
 
 1. **Pandoc**
-   - [下载地址](https://pandoc.org/installing.html)
-   - 作用：将 Markdown 转换为 Word DOCX 文档
+      - [下载地址](https://pandoc.org/installing.html)
+      - 作用：将 Markdown 转换为 Word DOCX 文档
 2. **LibreOffice**
-   - [下载地址](https://www.libreoffice.org/download/download/)
-   - 作用：把 DOCX 导出为标准 PDF 文件
-     可以将程序加入系统环境变量 PATH，也可以直接在 VS Code 设置里手动指定可执行文件路径。
+      - [下载地址](https://www.libreoffice.org/download/download/)
+      - 作用：把 DOCX 导出为标准 PDF 文件
+        可以将程序加入系统环境变量 PATH，也可以直接在 VS Code 设置里手动指定可执行文件路径。
 
 ## 🚀 使用方法
 
@@ -41,7 +43,9 @@
 2. 方式一：直接点击编辑器标题栏预览图标，打开PDF预览
 3. 方式二：调出命令面板 `Ctrl+Shift+P`（Mac：`Cmd+Shift+P`）
 4. 搜索并执行命令：**Open Pandoc Word Preview(PDF)**
-5. 右侧打开预览面板，自动生成并展示 PDF
+5. 右侧打开预览面板：
+   - 如果检测到 LaTeX-Workshop 或 vscode-pdf 插件，会复用该插件的PDF预览器
+   - 未检测到第三方PDF预览插件，则打开内置 pdf.js 网页预览，鼠标滚轮可以放大缩小
 6. 修改 Markdown 内容，等待防抖延时后预览自动刷新
 
 ## ⚙️ 插件配置项
@@ -50,7 +54,7 @@
 
 - `mdPandocWordPreview.pandocPath`：Pandoc 程序路径，留空自动读取系统 PATH
 - `mdPandocWordPreview.sofficePath`：LibreOffice soffice.exe 路径；Windows示例：
-  `C:\\Program Files\\LibreOffice\\program\\soffice.exe`
+    `C:\\Program Files\\LibreOffice\\program\\soffice.exe`
 - `mdPandocWordPreview.referenceDocPath`：自定义 Word 模板 DOCX 路径，用于固定公文样式
 - `mdPandocWordPreview.pandocExtraArgs`：Pandoc 额外命令参数，用于控制版式、引用格式等
 - `mdPandocWordPreview.debounceMs`：编辑防抖延时，默认 800ms，避免频繁执行转换
@@ -58,13 +62,14 @@
 
 ## 📝 工作流程
 
-Markdown源文件 → **Pandoc**（生成带样式DOCX） → **LibreOffice**（导出PDF） → **VS Code Webview**（实时预览）
+Markdown源文件 → **Pandoc**（生成带样式DOCX） → **LibreOffice**（导出PDF） → **PDF预览器**（第三方插件预览器 / 内置 pdf.js Webview）
 
 ## 🐛 常见问题与排查
 
 - **提示命令找不到**：确认 Pandoc、LibreOffice 已安装，路径配置正确
 - **转换失败**：查看输出面板 `Markdown‑Office‑Preview`，阅读详细错误日志
 - **预览不更新**：确认预览面板未关闭，可适当调整防抖延时参数
+- **内置pdf.js预览卡顿**：页数较多的大型文档，缩放时会重绘全部页面，存在性能损耗
 
 ## 📌 更新日志
 
@@ -76,6 +81,8 @@ Markdown源文件 → **Pandoc**（生成带样式DOCX） → **LibreOffice**（
 - 编辑防抖自动刷新，独立日志输出面板
 - 全部配置项支持个性化调整
 - 新增编辑器标题栏工具栏图标，点击快速打开PDF预览面板
+- 新增第三方PDF预览插件检测与降级逻辑，兼容 LaTeX-Workshop / vscode-pdf
+- 内置pdf.js预览增加鼠标滚轮缩放功能，缩放范围0.3x ~ 3.0x
 
 ## 📄 许可证
 
