@@ -54,12 +54,12 @@ export class MdOfficePreview extends Disposable {
     }
 
     private updateState(): void {
-        if (this._previewState === 'Disposed') return;
+        if (this._previewState === 'Disposed') {return;}
         this._previewState = this.webviewPanel.active ? 'Active' : 'Visible';
     }
 
     public reloadPdf(): void {
-        if (this._previewState === 'Disposed') return;
+        if (this._previewState === 'Disposed') {return;}
         this.webviewPanel.webview.postMessage({
             type: 'reloadPdf',
             pdfUrl: this.webviewPanel.webview.asWebviewUri(this.pdfUri).toString() + `?t=${Date.now()}`

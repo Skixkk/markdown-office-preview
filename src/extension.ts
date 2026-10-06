@@ -2,7 +2,7 @@
  * @Author: Skixkk <166358870+Skixkk@users.noreply.github.com>
  * @Date: 2026-10-02 22:42:03
  * @LastEditors: Skixkk <166358870+Skixkk@users.noreply.github.com>
- * @LastEditTime: 2026-10-06 16:27:35
+ * @LastEditTime: 2026-10-06 16:38:42
  * @FilePath: \markdown-office-preview\src\extension.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -10,18 +10,14 @@ import * as vscode from 'vscode';
 import { MdOfficePreviewProvider } from './mdOfficeProvider';
 import { buildMdToPdf } from './converter';
 import { tryOpenThirdPartyPdfViewer } from './thirdPartyViewer';
-
 let outputChannel: vscode.OutputChannel;
 let previewProvider: MdOfficePreviewProvider;
 let debounceTimer: NodeJS.Timeout | null = null;
-
 export function activate(context: vscode.ExtensionContext): void {
     outputChannel = vscode.window.createOutputChannel('Markdown‑Office‑Preview');
     context.subscriptions.push(outputChannel);
-
     const extensionRoot = vscode.Uri.file(context.extensionPath);
     previewProvider = new MdOfficePreviewProvider(extensionRoot);
-
     // 注册预览命令
     const openPreviewCmd = vscode.commands.registerCommand(
         'md-pandoc-word-preview.openPreview',
@@ -32,19 +28,17 @@ export function activate(context: vscode.ExtensionContext): void {
                 return;
             }
             const mdUri = editor.document.uri;
-
             // 1.先生成PDF
             const pdfUri = await buildMdToPdf(mdUri, outputChannel);
             if (!pdfUri) {return;}
-
             // 2.尝试第三方预览
             const useThird = await tryOpenThirdPartyPdfViewer(pdfUri);
             if (useThird) {return;}
-
             // 3.使用内置预览：查找已有或者新建
             let preview = previewProvider.getPreviewByMdUri(mdUri);
             if (preview) {
-                preview.webviewPanel.reveal(vscode.ViewColumn.Two);
+                // 调用公开封装方法，禁止直接访问private webviewPanel
+                preview.revealPanel();
                 preview.updatePdfUri(pdfUri);
             } else {
                 preview = previewProvider.createPreview(mdUri, pdfUri, vscode.ViewColumn.Two);
@@ -52,7 +46,6 @@ export function activate(context: vscode.ExtensionContext): void {
         }
     );
     context.subscriptions.push(openPreviewCmd);
-
     // 文本编辑防抖更新
     vscode.workspace.onDidChangeTextDocument((docEvent) => {
         if (docEvent.document.languageId !== 'markdown') {return;}
@@ -70,7 +63,6 @@ export function activate(context: vscode.ExtensionContext): void {
         }, debounceMs);
     }, undefined, context.subscriptions);
 }
-
 export function deactivate(): void {
     if (debounceTimer) {clearTimeout(debounceTimer);}
     previewProvider?.disposeAll();

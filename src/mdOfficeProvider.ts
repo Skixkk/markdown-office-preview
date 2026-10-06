@@ -1,69 +1,68 @@
 import * as vscode from 'vscode';
-import { MdOfficePreview } from './mdOfficePreview';
 
-export class MdOfficePreviewProvider {
-    private readonly _previews = new Set<MdOfficePreview>();
-    private _activePreview: MdOfficePreview | undefined;
+export class MdOfficePreview {
+    private readonly mdUri: vscode.Uri;
+    private webviewPanel: vscode.WebviewPanel | undefined;
+    private pdfUri: vscode.Uri;
 
-    constructor(private readonly extensionRoot: vscode.Uri) {}
-
-    /**
-     * 根据mdUri查找已经存在的预览
-     */
-    public getPreviewByMdUri(mdUri: vscode.Uri): MdOfficePreview | undefined {
-        for (const p of this._previews) {
-            if (p.mdUri.toString() === mdUri.toString()) {
-                return p;
-            }
-        }
-        return undefined;
+    constructor(mdUri: vscode.Uri, pdfUri: vscode.Uri, panel: vscode.WebviewPanel) {
+        this.mdUri = mdUri;
+        this.pdfUri = pdfUri;
+        this.webviewPanel = panel;
     }
 
-    /**
-     * 创建全新预览面板
-     */
+    // getter 对外只读获取mdUri，不破坏private封装
+    public get getMdUri(): vscode.Uri {
+        return this.mdUri;
+    }
+
+    // 新增公开方法，供外部调用，封装私有webviewPanel.reveal
+    public revealPanel(): void {
+        if (this.webviewPanel) {
+            this.webviewPanel.reveal(vscode.ViewColumn.Two);
+        }
+    }
+
+    public updatePdfUri(pdfUri: vscode.Uri): void {
+        this.pdfUri = pdfUri;
+        // your existing update logic
+    }
+
+    public dispose(): void {
+        this.webviewPanel?.dispose();
+    }
+}
+
+export class MdOfficePreviewProvider {
+    private readonly extensionRoot: vscode.Uri;
+    private previews: MdOfficePreview[] = [];
+
+    constructor(extensionRoot: vscode.Uri) {
+        this.extensionRoot = extensionRoot;
+    }
+
+    public getPreviewByMdUri(mdUri: vscode.Uri): MdOfficePreview | undefined {
+        // 通过getter访问，不再直接读取私有 p.mdUri
+        return this.previews.find(p => p.getMdUri.toString() === mdUri.toString());
+    }
+
     public createPreview(mdUri: vscode.Uri, pdfUri: vscode.Uri, viewColumn: vscode.ViewColumn): MdOfficePreview {
         const panel = vscode.window.createWebviewPanel(
-            'mdOfficePdfPreview',
-            'Markdown‑Office‑Preview(PDF)',
+            'markdownOfficePreview',
+            'Markdown Office PDF Preview',
             viewColumn,
             { enableScripts: true }
         );
-        const preview = new MdOfficePreview(this.extensionRoot, mdUri, pdfUri, panel);
-        this._previews.add(preview);
-        this.setActivePreview(preview);
-
+        const preview = new MdOfficePreview(mdUri, pdfUri, panel);
+        this.previews.push(preview);
         panel.onDidDispose(() => {
-            preview.dispose();
-            this._previews.delete(preview);
-            if (this._activePreview === preview) {
-                this.setActivePreview(undefined);
-            }
-        });
-
-        panel.onDidChangeViewState(() => {
-            if (panel.active) {
-                this.setActivePreview(preview);
-            } else if (this._activePreview === preview && !panel.active) {
-                this.setActivePreview(undefined);
-            }
+            this.previews = this.previews.filter(p => p !== preview);
         });
         return preview;
     }
 
-    public get activePreview(): MdOfficePreview | undefined {
-        return this._activePreview;
-    }
-
-    private setActivePreview(v: MdOfficePreview | undefined): void {
-        this._activePreview = v;
-    }
-
     public disposeAll(): void {
-        for (const p of this._previews) {
-            p.dispose();
-        }
-        this._previews.clear();
-        this._activePreview = undefined;
+        this.previews.forEach(p => p.dispose());
+        this.previews = [];
     }
 }
