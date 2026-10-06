@@ -28,12 +28,12 @@
 插件依赖两款第三方工具，请提前安装：
 
 1. **Pandoc**
-    - [下载地址](https://pandoc.org/installing.html)
-    - 作用：将 Markdown 转换为 Word DOCX 文档
+   - [下载地址](https://pandoc.org/installing.html)
+   - 作用：将 Markdown 转换为 Word DOCX 文档
 2. **LibreOffice**
-    - [下载地址](https://www.libreoffice.org/download/download/)
-    - 作用：把 DOCX 导出为标准 PDF 文件
-      可以将程序加入系统环境变量 PATH，也可以直接在 VS Code 设置里手动指定可执行文件路径。
+   - [下载地址](https://www.libreoffice.org/download/download/)
+   - 作用：把 DOCX 导出为标准 PDF 文件
+     可以将程序加入系统环境变量 PATH，也可以直接在 VS Code 设置里手动指定可执行文件路径。
 
 ## 🚀 使用方法
 
@@ -80,4 +80,5 @@ Markdown源文件 → **Pandoc**（生成带样式DOCX） → **LibreOffice**（
 ## 📄 许可证
 
 MIT License
+
 > 使用 Markdown，轻松写出符合办公规范的文档 ✍️

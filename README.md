@@ -1,6 +1,7 @@
 # Markdown Office Preview
 
 > **A VS Code extension for professional Markdown office document preview**
+
 [中文文档](./README.zh.md)
 
 Convert Markdown files to standardized Word (.docx) and PDF documents in one click, powered by **Pandoc** and **LibreOffice**.
@@ -21,13 +22,13 @@ Provides real‑time debounced preview and official document style template supp
 This extension relies on two third‑party tools, please install them first:
 
 1. **Pandoc**
-    - [Download](https://pandoc.org/installing.html)
-    - Used for converting Markdown to standard Word DOCX files
+   - [Download](https://pandoc.org/installing.html)
+   - Used for converting Markdown to standard Word DOCX files
 2. **LibreOffice**
-    - [Download](https://www.libreoffice.org/download/download/)
-    - Used for converting DOCX files to standard PDF preview files
-      You can either add the above tools to system `PATH` or manually configure their executable paths in VS Code
-      settings.
+   - [Download](https://www.libreoffice.org/download/download/)
+   - Used for converting DOCX files to standard PDF preview files
+     You can either add the above tools to system `PATH` or manually configure their executable paths in VS Code
+     settings.
 
 ## 🚀 How to Use
 

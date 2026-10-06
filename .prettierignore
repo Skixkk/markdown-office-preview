@@ -1,0 +1,18 @@
+.idea/
+dist/
+node_modules/
+pnpm-lock.yaml
+*.log=
+**/temp/*.md
+/foo.js
+
+out
+.vscode-test/
+*.vsix
+# pdfjs 第三方编译产物，跳过格式化
+resources/pdfjs/
+# github issue模板（可选）
+.github/ISSUE_TEMPLATE/
+
+# ide
+.vscode/

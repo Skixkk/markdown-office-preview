@@ -10,14 +10,19 @@ import * as vscode from 'vscode';
 import fs from 'fs';
 import path from 'path';
 
-export function isExecaError(err: unknown): err is { stderr?: string; message: string; failed: boolean } {
+export function isExecaError(
+    err: unknown,
+): err is { stderr?: string; message: string; failed: boolean } {
     return typeof err === 'object' && err !== null && 'failed' in err;
 }
 
 /**
  * 解析二进制路径 pandoc / soffice
  */
-export async function resolveExecutable(configPath: string, binName: string): Promise<string> {
+export async function resolveExecutable(
+    configPath: string,
+    binName: string,
+): Promise<string> {
     if (configPath && fs.existsSync(configPath)) {
         return configPath;
     }
@@ -33,7 +38,10 @@ export async function resolveExecutable(configPath: string, binName: string): Pr
 /**
  * md -> docx -> pdf，返回生成pdf Uri，失败返回 undefined
  */
-export async function buildMdToPdf(mdUri: vscode.Uri, outputChannel: vscode.OutputChannel): Promise<vscode.Uri | undefined> {
+export async function buildMdToPdf(
+    mdUri: vscode.Uri,
+    outputChannel: vscode.OutputChannel,
+): Promise<vscode.Uri | undefined> {
     const config = vscode.workspace.getConfiguration('mdPandocWordPreview');
     const pandocConfigPath = config.get<string>('pandocPath', '');
     const sofficeConfigPath = config.get<string>('sofficePath', '');
@@ -44,11 +52,15 @@ export async function buildMdToPdf(mdUri: vscode.Uri, outputChannel: vscode.Outp
     const sofficePath = await resolveExecutable(sofficeConfigPath, 'soffice');
 
     if (!pandocPath) {
-        vscode.window.showErrorMessage('pandoc 未找到，请检查 mdPandocWordPreview.pandocPath');
+        vscode.window.showErrorMessage(
+            'pandoc 未找到，请检查 mdPandocWordPreview.pandocPath',
+        );
         return undefined;
     }
     if (!sofficePath) {
-        vscode.window.showErrorMessage('LibreOffice soffice 未找到，请检查 mdPandocWordPreview.sofficePath');
+        vscode.window.showErrorMessage(
+            'LibreOffice soffice 未找到，请检查 mdPandocWordPreview.sofficePath',
+        );
         return undefined;
     }
 
@@ -72,8 +84,11 @@ export async function buildMdToPdf(mdUri: vscode.Uri, outputChannel: vscode.Outp
         await execa(pandocPath, pandocArgs);
     } catch (err) {
         let msg = '';
-        if (isExecaError(err)) {msg = err.stderr ?? err.message;}
-        else if (err instanceof Error) {msg = err.message;}
+        if (isExecaError(err)) {
+            msg = err.stderr ?? err.message;
+        } else if (err instanceof Error) {
+            msg = err.message;
+        }
         outputChannel.appendLine(`[pandoc] error: ${msg}`);
         vscode.window.showErrorMessage(`Pandoc转换失败: ${msg}`);
         return undefined;
@@ -83,21 +98,28 @@ export async function buildMdToPdf(mdUri: vscode.Uri, outputChannel: vscode.Outp
     try {
         await execa(sofficePath, [
             '--headless',
-            '--convert-to', 'pdf',
-            '--outdir', dir,
-            docxPath
+            '--convert-to',
+            'pdf',
+            '--outdir',
+            dir,
+            docxPath,
         ]);
     } catch (err) {
         let msg = '';
-        if (isExecaError(err)) {msg = err.stderr ?? err.message;}
-        else if (err instanceof Error) {msg = err.message;}
+        if (isExecaError(err)) {
+            msg = err.stderr ?? err.message;
+        } else if (err instanceof Error) {
+            msg = err.message;
+        }
         outputChannel.appendLine(`[soffice] error: ${msg}`);
         vscode.window.showErrorMessage(`LibreOffice PDF导出失败: ${msg}`);
         return undefined;
     }
 
     if (!fs.existsSync(pdfPath)) {
-        outputChannel.appendLine(`[converter] pdf file not generated: ${pdfPath}`);
+        outputChannel.appendLine(
+            `[converter] pdf file not generated: ${pdfPath}`,
+        );
         return undefined;
     }
     return vscode.Uri.file(pdfPath);

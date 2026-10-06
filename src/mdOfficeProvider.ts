@@ -5,7 +5,12 @@ export class MdOfficePreview {
     private webviewPanel: vscode.WebviewPanel | undefined;
     private pdfUri: vscode.Uri;
     private readonly extensionRoot: vscode.Uri;
-    constructor(mdUri: vscode.Uri, pdfUri: vscode.Uri, panel: vscode.WebviewPanel, extensionRoot: vscode.Uri) {
+    constructor(
+        mdUri: vscode.Uri,
+        pdfUri: vscode.Uri,
+        panel: vscode.WebviewPanel,
+        extensionRoot: vscode.Uri,
+    ) {
         this.mdUri = mdUri;
         this.pdfUri = pdfUri;
         this.webviewPanel = panel;
@@ -28,14 +33,24 @@ export class MdOfficePreview {
         this.webviewPanel?.dispose();
     }
     private renderPdfJsViewer(): void {
-        if (!this.webviewPanel) {return;}
+        if (!this.webviewPanel) {
+            return;
+        }
         const panel = this.webviewPanel;
         // ✅ 从dist目录读取，不再读取node_modules
-        const pdfJsRootUri = vscode.Uri.joinPath(this.extensionRoot, 'dist', 'pdfjs');
+        const pdfJsRootUri = vscode.Uri.joinPath(
+            this.extensionRoot,
+            'dist',
+            'pdfjs',
+        );
         const pdfJsBuildUri = vscode.Uri.joinPath(pdfJsRootUri, 'build');
         const pdfJsWebUri = vscode.Uri.joinPath(pdfJsRootUri, 'web');
-        const pdfJsUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.js'));
-        const pdfJsWorkerUri = panel.webview.asWebviewUri(vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.worker.js'));
+        const pdfJsUri = panel.webview.asWebviewUri(
+            vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.js'),
+        );
+        const pdfJsWorkerUri = panel.webview.asWebviewUri(
+            vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.worker.js'),
+        );
         const pdfFileWebUri = panel.webview.asWebviewUri(this.pdfUri);
         panel.webview.html = `
 <!DOCTYPE html>
@@ -93,26 +108,37 @@ export class MdOfficePreviewProvider {
         this.extensionRoot = extensionRoot;
     }
     public getPreviewByMdUri(mdUri: vscode.Uri): MdOfficePreview | undefined {
-        return this.previews.find(p => p.mdUriValue.toString() === mdUri.toString());
+        return this.previews.find(
+            (p) => p.mdUriValue.toString() === mdUri.toString(),
+        );
     }
-    public createPreview(mdUri: vscode.Uri, pdfUri: vscode.Uri, viewColumn: vscode.ViewColumn): MdOfficePreview {
+    public createPreview(
+        mdUri: vscode.Uri,
+        pdfUri: vscode.Uri,
+        viewColumn: vscode.ViewColumn,
+    ): MdOfficePreview {
         const panel = vscode.window.createWebviewPanel(
             'markdownOfficePreview',
             'Markdown Office PDF Preview',
             viewColumn,
             {
-                enableScripts: true
-            }
+                enableScripts: true,
+            },
         );
-        const preview = new MdOfficePreview(mdUri, pdfUri, panel, this.extensionRoot);
+        const preview = new MdOfficePreview(
+            mdUri,
+            pdfUri,
+            panel,
+            this.extensionRoot,
+        );
         this.previews.push(preview);
         panel.onDidDispose(() => {
-            this.previews = this.previews.filter(p => p !== preview);
+            this.previews = this.previews.filter((p) => p !== preview);
         });
         return preview;
     }
     public disposeAll(): void {
-        this.previews.forEach(p => p.dispose());
+        this.previews.forEach((p) => p.dispose());
         this.previews = [];
     }
 }

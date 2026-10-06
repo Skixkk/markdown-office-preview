@@ -11,7 +11,7 @@ export class MdOfficePreview extends Disposable {
         private readonly extensionRoot: vscode.Uri,
         public readonly mdUri: vscode.Uri,
         public pdfUri: vscode.Uri,
-        private readonly webviewPanel: vscode.WebviewPanel
+        private readonly webviewPanel: vscode.WebviewPanel,
     ) {
         super();
         const webview = webviewPanel.webview;
@@ -19,50 +19,68 @@ export class MdOfficePreview extends Disposable {
             enableScripts: true,
             localResourceRoots: [
                 vscode.Uri.joinPath(extensionRoot, 'resources/pdfjs'),
-                vscode.Uri.file(path.dirname(pdfUri.fsPath))
-            ]
+                vscode.Uri.file(path.dirname(pdfUri.fsPath)),
+            ],
         };
 
         // webview 消息
-        this._register(webview.onDidReceiveMessage((msg) => {
-            switch (msg.type) {
-                case 'webviewReady':
-                    this.reloadPdf();
-                    break;
-            }
-        }));
+        this._register(
+            webview.onDidReceiveMessage((msg) => {
+                switch (msg.type) {
+                    case 'webviewReady':
+                        this.reloadPdf();
+                        break;
+                }
+            }),
+        );
 
         // panel 状态
-        this._register(webviewPanel.onDidChangeViewState(() => this.updateState()));
-        this._register(webviewPanel.onDidDispose(() => {
-            this._previewState = 'Disposed';
-        }));
+        this._register(
+            webviewPanel.onDidChangeViewState(() => this.updateState()),
+        );
+        this._register(
+            webviewPanel.onDidDispose(() => {
+                this._previewState = 'Disposed';
+            }),
+        );
 
         // 监听生成的pdf磁盘文件变化
-        const watcher = this._register(vscode.workspace.createFileSystemWatcher(pdfUri.fsPath));
-        this._register(watcher.onDidChange((e) => {
-            if (e.toString() === this.pdfUri.toString()) {
-                this.reloadPdf();
-            }
-        }));
-        this._register(watcher.onDidDelete(() => {
-            webviewPanel.dispose();
-        }));
+        const watcher = this._register(
+            vscode.workspace.createFileSystemWatcher(pdfUri.fsPath),
+        );
+        this._register(
+            watcher.onDidChange((e) => {
+                if (e.toString() === this.pdfUri.toString()) {
+                    this.reloadPdf();
+                }
+            }),
+        );
+        this._register(
+            watcher.onDidDelete(() => {
+                webviewPanel.dispose();
+            }),
+        );
 
         webviewPanel.webview.html = this.getWebviewHtml();
         this.updateState();
     }
 
     private updateState(): void {
-        if (this._previewState === 'Disposed') {return;}
+        if (this._previewState === 'Disposed') {
+            return;
+        }
         this._previewState = this.webviewPanel.active ? 'Active' : 'Visible';
     }
 
     public reloadPdf(): void {
-        if (this._previewState === 'Disposed') {return;}
+        if (this._previewState === 'Disposed') {
+            return;
+        }
         this.webviewPanel.webview.postMessage({
             type: 'reloadPdf',
-            pdfUrl: this.webviewPanel.webview.asWebviewUri(this.pdfUri).toString() + `?t=${Date.now()}`
+            pdfUrl:
+                this.webviewPanel.webview.asWebviewUri(this.pdfUri).toString() +
+                `?t=${Date.now()}`,
         });
     }
 
@@ -74,7 +92,9 @@ export class MdOfficePreview extends Disposable {
     private getWebviewHtml(): string {
         const webview = this.webviewPanel.webview;
         const cspSource = webview.cspSource;
-        const pdfJsRoot = webview.asWebviewUri(vscode.Uri.joinPath(this.extensionRoot, 'resources/pdfjs'));
+        const pdfJsRoot = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionRoot, 'resources/pdfjs'),
+        );
 
         return `<!DOCTYPE html>
 <html style="margin:0;padding:0;height:100%;overflow:hidden;">
