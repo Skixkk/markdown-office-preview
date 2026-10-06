@@ -48,7 +48,7 @@
         "mdPandocWordPreview.preferThirdPartyViewer": {
           "type": "boolean",
           "default": true,
-          "description": "优先复用已安装第三方PDF预览插件(LaTeX‑Workshop / pdfviewer); false强制使用内置预览面板"
+          "description": "优先复用已安装第三方PDF预览插件(LaTeX-Workshop / pdfviewer); false强制使用内置预览面板"
         }
       }
     },
