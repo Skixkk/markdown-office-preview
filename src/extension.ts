@@ -25,11 +25,24 @@ async function tryUseThirdPartyPdfViewer(pdfUri: vscode.Uri): Promise<boolean> {
     if (!preferThirdParty) {
         return false;
     }
+    const extLatexWorkshop = vscode.extensions.getExtension('james-yu.latex-workshop');
+    const extVscodePdf = vscode.extensions.getExtension('tomoki1207.pdfviewer');
+    // 检测两个插件同时启用，原生存在PDF CustomEditor抢占冲突，不调用任意第三方查看器
+    if(extLatexWorkshop?.isActive && extVscodePdf?.isActive){
+        outputChannel.appendLine('[preview] conflict detected: both LaTeX‑Workshop and tomoki1207.pdfviewer active, skip third‑party invoke');
+        const select = await vscode.window.showWarningMessage(
+            'vscode‑pdf 和 LaTeX‑Workshop 存在PDF编辑器冲突，请禁用其中一个，或使用插件内置预览',
+            '使用本插件内置预览'
+        );
+        if(select !== '使用本插件内置预览'){
+            outputChannel.appendLine('[preview] user skip preview after conflict warning');
+        }
+        return false;
+    }
     // Try LaTeX‑Workshop
-    const latexWorkshopExt = vscode.extensions.getExtension('james-yu.latex-workshop');
-    if (latexWorkshopExt) {
-        if (!latexWorkshopExt.isActive) {
-            await latexWorkshopExt.activate();
+    if (extLatexWorkshop) {
+        if (!extLatexWorkshop.isActive) {
+            await extLatexWorkshop.activate();
         }
         try {
             await vscode.commands.executeCommand('latex-workshop.viewer.viewPdf', { uri: pdfUri });
@@ -40,10 +53,9 @@ async function tryUseThirdPartyPdfViewer(pdfUri: vscode.Uri): Promise<boolean> {
         }
     }
     // Try tomoki1207/pdfviewer
-    const pdfViewerExt = vscode.extensions.getExtension('tomoki1207.pdfviewer');
-    if (pdfViewerExt) {
-        if (!pdfViewerExt.isActive) {
-            await pdfViewerExt.activate();
+    if (extVscodePdf) {
+        if (!extVscodePdf.isActive) {
+            await extVscodePdf.activate();
         }
         try {
             await vscode.commands.executeCommand('pdfviewer.openPdf', pdfUri);
@@ -326,8 +338,9 @@ export function activate(context: vscode.ExtensionContext) {
                         vscode.ViewColumn.Two,
                         {
                             enableScripts: true,
+                            // 指向项目内resources/pdfjs
                             localResourceRoots: [
-                                vscode.Uri.joinPath(context.extensionUri, 'node_modules/pdfjs-dist/build')
+                                vscode.Uri.joinPath(context.extensionUri, 'resources/pdfjs')
                             ]
                         }
                     );
@@ -355,9 +368,9 @@ export function activate(context: vscode.ExtensionContext) {
                         }
                     });
                 });
-
+                // 改为读取项目resources/pdfjs
                 const pdfJsBuildUri = previewPanel.webview.asWebviewUri(
-                    vscode.Uri.joinPath(context.extensionUri, 'node_modules/pdfjs-dist/build')
+                    vscode.Uri.joinPath(context.extensionUri, 'resources/pdfjs')
                 );
 
                 // ========= Webview HTML：pdfjs‑dist 渲染PDF（参考tomoki1207/vscode‑pdfviewer实现思路） =========
@@ -365,7 +378,7 @@ export function activate(context: vscode.ExtensionContext) {
 <html style="margin:0;padding:0;height:100%;overflow:hidden;">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline' ${pdfJsBuildUri};style-src 'unsafe-inline';worker-src ${pdfJsBuildUri} blob:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'unsafe-inline' ${pdfJsBuildUri};style-src 'unsafe-inline';worker-src ${pdfJsBuildUri} blob:;data:;">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 body{height:100vh;background:#525659;overflow:auto;display:flex;flex-direction:column;align-items:center;padding:16px 0;}
@@ -385,10 +398,11 @@ let pdfDoc = null;
 const container = document.getElementById('pdfContainer');
 
 async function renderPdf(pdfUrl){
-    container.innerHTML = '';
+    container.innerHTML = '<div style="color:white;">Rendering PDF...</div>';
     try{
         const loadingTask = pdfjsLib.getDocument(pdfUrl);
         pdfDoc = await loadingTask.promise;
+        container.innerHTML = '';
         for(let i=1;i<=pdfDoc.numPages;i++){
             const page = await pdfDoc.getPage(i);
             const scale = 1.5;
@@ -402,7 +416,8 @@ async function renderPdf(pdfUrl){
             await page.render({canvasContext:ctx,viewport}).promise;
         }
     }catch(e){
-        container.innerHTML = '<div style="color:#fff;">PDF渲染失败：'+e.message+'</div>';
+        container.innerHTML = '<div style="color:#ff7777;padding:20px;">PDF render error：'+e.message+'</div>';
+        console.error(e);
     }
 }
 

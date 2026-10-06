@@ -2,7 +2,7 @@
  * @Author: Skixkk <166358870+Skixkk@users.noreply.github.com>
  * @Date: 2026-09-27 01:19:45
  * @LastEditors: Skixkk <166358870+Skixkk@users.noreply.github.com>
- * @LastEditTime: 2026-10-06 13:05:38
+ * @LastEditTime: 2026-10-06 13:16:36
  * @FilePath: \markdown-office-preview\CHANGELOG.md
  * @Description: changed && TODO
 -->
@@ -38,6 +38,10 @@ Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how 
 > Reserved for future planning items
 
 - Initial release backlog
+
+1. 优先检测是否安装 `tomoki1207/vscode-pdf`
+2. 其次检测是否安装 `James-Yu/LaTeX-Workshop`
+3. 都没有，则使用我们自己 webview 预览
 
 ### 打包优化
 
