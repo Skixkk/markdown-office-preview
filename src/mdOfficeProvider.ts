@@ -141,20 +141,22 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 
 const pdfUrl = '${pdfFileWebUri}';
 
+// zoom config
+let scale = 1.5;
+const MIN_SCALE = 0.3;
+const MAX_SCALE = 3.0;
+let pdfDoc = null;
+const container = document.getElementById('container');
+
 async function renderPdf() {
-    const container =
-        document.getElementById('container');
-
     try {
-        container.innerHTML =
-            '<div>Loading PDF...</div>';
-
-        const pdfDoc =
-            await pdfjsLib.getDocument({
+        if (!pdfDoc) {
+            container.innerHTML = '<div>Loading PDF...</div>';
+            pdfDoc = await pdfjsLib.getDocument({
                 url: pdfUrl,
                 withCredentials: false,
             }).promise;
-
+        }
         container.innerHTML = '';
 
         for (
@@ -167,7 +169,7 @@ async function renderPdf() {
 
             const viewport =
                 page.getViewport({
-                    scale: 1.5,
+                    scale: scale,
                 });
 
             const canvas =
@@ -217,6 +219,13 @@ async function renderPdf() {
         container.appendChild(errorElement);
     }
 }
+// mouse‑wheel zoom handler
+container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, scale + delta));
+    renderPdf();
+}, { passive: false });
 
 renderPdf();
 </script>
