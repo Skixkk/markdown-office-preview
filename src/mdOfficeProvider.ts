@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+
 export class MdOfficePreview {
     private readonly mdUri: vscode.Uri;
     private webviewPanel: vscode.WebviewPanel | undefined;
     private pdfUri: vscode.Uri;
     private readonly extensionRoot: vscode.Uri;
+
     constructor(
         mdUri: vscode.Uri,
         pdfUri: vscode.Uri,
@@ -15,103 +17,245 @@ export class MdOfficePreview {
         this.pdfUri = pdfUri;
         this.webviewPanel = panel;
         this.extensionRoot = extensionRoot;
+
+        this.configureWebview();
         this.renderPdfJsViewer();
+
+        panel.onDidDispose(() => {
+            this.webviewPanel = undefined;
+        });
     }
+
     public get mdUriValue(): vscode.Uri {
         return this.mdUri;
     }
+
     public revealPanel(): void {
-        if (this.webviewPanel) {
-            this.webviewPanel.reveal(vscode.ViewColumn.Two);
-        }
+        this.webviewPanel?.reveal(vscode.ViewColumn.Two);
     }
+
     public updatePdfUri(pdfUri: vscode.Uri): void {
         this.pdfUri = pdfUri;
         this.renderPdfJsViewer();
     }
+
     public dispose(): void {
         this.webviewPanel?.dispose();
     }
+
+    private configureWebview(): void {
+        if (!this.webviewPanel) {
+            return;
+        }
+
+        this.webviewPanel.webview.options = {
+            enableScripts: true,
+            localResourceRoots: [
+                vscode.Uri.joinPath(this.extensionRoot, 'dist', 'pdfjs'),
+                vscode.Uri.file(path.dirname(this.pdfUri.fsPath)),
+            ],
+        };
+    }
+
     private renderPdfJsViewer(): void {
         if (!this.webviewPanel) {
             return;
         }
-        const panel = this.webviewPanel;
-        // ✅ 从dist目录读取，不再读取node_modules
-        const pdfJsRootUri = vscode.Uri.joinPath(
+
+        const webview = this.webviewPanel.webview;
+
+        const pdfJsBuildUri = vscode.Uri.joinPath(
             this.extensionRoot,
             'dist',
             'pdfjs',
+            'build',
         );
-        const pdfJsBuildUri = vscode.Uri.joinPath(pdfJsRootUri, 'build');
-        const pdfJsWebUri = vscode.Uri.joinPath(pdfJsRootUri, 'web');
-        const pdfJsUri = panel.webview.asWebviewUri(
-            vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.js'),
+
+        const pdfJsUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.mjs'),
         );
-        const pdfJsWorkerUri = panel.webview.asWebviewUri(
-            vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.worker.js'),
+
+        const pdfJsWorkerUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(pdfJsBuildUri, 'pdf.worker.mjs'),
         );
-        const pdfFileWebUri = panel.webview.asWebviewUri(this.pdfUri);
-        panel.webview.html = `
+
+        const pdfFileWebUri = webview.asWebviewUri(this.pdfUri);
+
+        const nonce = this.createNonce();
+
+        webview.html = `
 <!DOCTYPE html>
 <html>
 <head>
 <meta charset="UTF-8">
+
+<meta
+    http-equiv="Content-Security-Policy"
+    content="
+        default-src 'none';
+        script-src 'nonce-${nonce}';
+        style-src 'unsafe-inline';
+        worker-src ${webview.cspSource} blob:;
+        connect-src ${webview.cspSource};
+        img-src ${webview.cspSource} blob: data:;
+    "
+>
+
 <title>Markdown Office PDF Preview</title>
+
 <style>
-html,body{margin:0;padding:0;height:100vh;overflow:auto;background:#eeeeee;}
-#container{width:100%;padding:16px;box-sizing:border-box;}
-canvas{display:block;margin:12px auto;background:#fff;box-shadow:0 2px 8px #00000022;}
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background: #eeeeee;
+}
+
+#container {
+    width: 100%;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+canvas {
+    display: block;
+    margin: 12px auto;
+    background: #ffffff;
+    box-shadow: 0 2px 8px #00000022;
+}
 </style>
 </head>
+
 <body>
+
 <div id="container"></div>
-<script src="${pdfJsUri}"></script>
-<script>
-const pdfjsLib = window['pdfjs-dist/build/pdf'];
-pdfjsLib.GlobalWorkerOptions.workerSrc = '${pdfJsWorkerUri}';
+
+<script type="module" nonce="${nonce}">
+import * as pdfjsLib from '${pdfJsUri}';
+
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+    '${pdfJsWorkerUri}';
+
 const pdfUrl = '${pdfFileWebUri}';
-(async function renderPdf() {
+
+async function renderPdf() {
+    const container =
+        document.getElementById('container');
+
     try {
-        // withCredentials:false bypass vscode‑resource virtual origin cross‑origin restriction
-        const pdfDoc = await pdfjsLib.getDocument({
-            url: pdfUrl,
-            withCredentials: false
-        }).promise;
-        const pageCount = pdfDoc.numPages;
-        const container = document.getElementById('container');
-        for(let i=1;i<=pageCount;i++){
-            const page = await pdfDoc.getPage(i);
-            const viewport = page.getViewport({scale:1.5});
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+        container.innerHTML =
+            '<div>Loading PDF...</div>';
+
+        const pdfDoc =
+            await pdfjsLib.getDocument({
+                url: pdfUrl,
+                withCredentials: false,
+            }).promise;
+
+        container.innerHTML = '';
+
+        for (
+            let pageNumber = 1;
+            pageNumber <= pdfDoc.numPages;
+            pageNumber++
+        ) {
+            const page =
+                await pdfDoc.getPage(pageNumber);
+
+            const viewport =
+                page.getViewport({
+                    scale: 1.5,
+                });
+
+            const canvas =
+                document.createElement('canvas');
+
+            canvas.width =
+                viewport.width;
+
+            canvas.height =
+                viewport.height;
+
             container.appendChild(canvas);
-            await page.render({canvasContext:ctx, viewport}).promise;
+
+            const context =
+                canvas.getContext('2d');
+
+            if (!context) {
+                throw new Error(
+                    'Unable to create canvas context',
+                );
+            }
+
+            await page.render({
+                canvasContext: context,
+                viewport,
+            }).promise;
         }
-    } catch(err) {
-        console.error('PDF render error', err);
-        document.body.innerText = 'PDF Render Error: ' + err.message;
-    }
-})();
-</script>
-</body>
-</html>
-        `;
+    } catch (error) {
+        console.error(
+            'PDF render error:',
+            error,
+        );
+
+        container.innerHTML = '';
+
+        const errorElement =
+            document.createElement('pre');
+
+        errorElement.style.padding = '20px';
+        errorElement.style.color = '#c62828';
+
+        errorElement.textContent =
+            error instanceof Error
+                ? error.stack ?? error.message
+                : String(error);
+
+        container.appendChild(errorElement);
     }
 }
+
+renderPdf();
+</script>
+
+</body>
+</html>
+`;
+    }
+
+    private createNonce(): string {
+        const characters =
+            'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+        let result = '';
+
+        for (let i = 0; i < 32; i++) {
+            result += characters.charAt(
+                Math.floor(Math.random() * characters.length),
+            );
+        }
+
+        return result;
+    }
+}
+
 export class MdOfficePreviewProvider {
     private readonly extensionRoot: vscode.Uri;
     private previews: MdOfficePreview[] = [];
+
     constructor(extensionRoot: vscode.Uri) {
         this.extensionRoot = extensionRoot;
     }
+
     public getPreviewByMdUri(mdUri: vscode.Uri): MdOfficePreview | undefined {
         return this.previews.find(
-            (p) => p.mdUriValue.toString() === mdUri.toString(),
+            (preview) => preview.mdUriValue.toString() === mdUri.toString(),
         );
     }
+
     public createPreview(
         mdUri: vscode.Uri,
         pdfUri: vscode.Uri,
@@ -123,22 +267,32 @@ export class MdOfficePreviewProvider {
             viewColumn,
             {
                 enableScripts: true,
+                localResourceRoots: [
+                    vscode.Uri.joinPath(this.extensionRoot, 'dist', 'pdfjs'),
+                    vscode.Uri.file(path.dirname(pdfUri.fsPath)),
+                ],
             },
         );
+
         const preview = new MdOfficePreview(
             mdUri,
             pdfUri,
             panel,
             this.extensionRoot,
         );
+
         this.previews.push(preview);
+
         panel.onDidDispose(() => {
-            this.previews = this.previews.filter((p) => p !== preview);
+            this.previews = this.previews.filter((item) => item !== preview);
         });
+
         return preview;
     }
+
     public disposeAll(): void {
-        this.previews.forEach((p) => p.dispose());
+        this.previews.forEach((preview) => preview.dispose());
+
         this.previews = [];
     }
 }
